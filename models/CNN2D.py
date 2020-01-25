@@ -1,0 +1,56 @@
+"""
+Basic model example using a 2D CNN with 32x32x3 images as inputs and 5 metadata
+Used only for demonstration purposes and not to be used on real datas
+"""
+import tensorflow as tf
+import numpy as np
+from typing import List
+
+
+class CNN2D(tf.keras.Model):
+    """
+    Toy model to test multiple inputs and outputs
+    """
+    def __init__(self):
+        """
+        Define model layers
+        """
+        super(CNN2D, self).__init__()
+        self.conv_1 = tf.keras.layers.Conv2D(32, (3, 3), activation='relu')
+        self.pool_1 = tf.keras.layers.MaxPooling2D((2, 2))
+        self.conv_2 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu')
+        self.pool_2 = tf.keras.layers.MaxPooling2D((2, 2))
+        self.conv_3 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu')
+        self.flatten = tf.keras.layers.Flatten()
+        self.FC1 = tf.keras.layers.Dense(64, activation='relu')
+
+        self.t0 = tf.keras.layers.Dense(1, name='t0')
+        self.t1 = tf.keras.layers.Dense(1, name='t1')
+        self.t2 = tf.keras.layers.Dense(1, name='t2')
+        self.t3 = tf.keras.layers.Dense(1, name='t3')
+
+    def call(self, inputs: List[np.array, np.array[tf.float32]])\
+            -> List[tf.float32]:
+        """
+        Perform forward on inpouts and returns predicted GHI at the
+        desired times
+        :param inputs: input images and metadata
+        :return: a list of four floats for GHI at each desired time
+        """
+        img, metadata = inputs  # split images and metadata
+        x = self.conv_1(img)
+        x = self.pool_1(x)
+        x = self.conv_2(x)
+        x = self.pool_2(x)
+        x = self.conv_3(x)
+        x = self.flatten(x)
+        # concatenate encoded image and metadata
+        x = tf.keras.layers.concatenate([x, metadata], 1)
+        x = self.FC1(x)
+        # Create 4 outputs for t0, t0+1, t0+3 and t0+6
+        t0 = self.t0(x)
+        t1 = self.t1(x)
+        t2 = self.t2(x)
+        t3 = self.t3(x)
+
+        return [t0, t1, t2, t3]
