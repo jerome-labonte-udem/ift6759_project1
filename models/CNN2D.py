@@ -29,8 +29,8 @@ class CNN2D(tf.keras.Model):
         self.t2 = tf.keras.layers.Dense(1, name='t2')
         self.t3 = tf.keras.layers.Dense(1, name='t3')
 
-    def call(self, inputs: List[np.array, np.array[tf.float32]])\
-            -> List[tf.float32]:
+    def call(self, inputs: List[np.array])\
+            -> List:
         """
         Perform forward on inpouts and returns predicted GHI at the
         desired times
