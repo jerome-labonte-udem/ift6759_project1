@@ -22,7 +22,8 @@ class CNN2D(tf.keras.Model):
         self.pool_2 = tf.keras.layers.MaxPooling2D((2, 2))
         self.conv_3 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu')
         self.flatten = tf.keras.layers.Flatten()
-        self.FC1 = tf.keras.layers.Dense(64, activation='relu')
+        self.FC1 = tf.keras.layers.Dense(128, activation='relu')
+        self.FC2 = tf.keras.layers.Dense(64, activation='relu')
 
         self.t0 = tf.keras.layers.Dense(1, name='t0')
         self.t1 = tf.keras.layers.Dense(1, name='t1')
@@ -32,7 +33,7 @@ class CNN2D(tf.keras.Model):
     def call(self, inputs: List[np.array])\
             -> List:
         """
-        Perform forward on inpouts and returns predicted GHI at the
+        Perform forward on inputs and returns predicted GHI at the
         desired times
         :param inputs: input images and metadata
         :return: a list of four floats for GHI at each desired time
@@ -47,6 +48,7 @@ class CNN2D(tf.keras.Model):
         # concatenate encoded image and metadata
         x = tf.keras.layers.concatenate([x, metadata], 1)
         x = self.FC1(x)
+        x = self.FC2(x)
         # Create 4 outputs for t0, t0+1, t0+3 and t0+6
         t0 = self.t0(x)
         t1 = self.t1(x)
