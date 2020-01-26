@@ -5,10 +5,11 @@ from src.data_utils import get_metadata, get_labels
 from src.schema import Station
 
 
-class TestCatalog(unittest.TestCase):
+class TestDataUtils(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.data_path = Path(Path(__file__).parent.parent, "data", "catalog.helios.public.20100101-20160101.pkl")
+        self.data_path = Path(Path(__file__).parent.parent, "data",
+                              "catalog.helios.public.20100101-20160101.pkl")
         self.test_data_path = Path("dummy_test_catalog.pkl")
 
     def test_get_metadata(self):
