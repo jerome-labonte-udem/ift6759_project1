@@ -1,8 +1,20 @@
+"""
+utility functions to extract data from pandas dataframe
+"""
 import numpy as np
 import pandas as pd
 
 
-def get_metadata(df, station, begin, end):
+def get_metadata(df: pd.DataFrame, station: str, begin: str, end: str) \
+        -> np.array:
+    """
+    Get metadata for every time stamp between to dates for a given station
+    :param df: pandas dataframe
+    :param station: code of the station
+    :param begin: begin time string that can be converted to datetime
+    :param end: end time string that can be converted to datetime
+    :return: np.array containing metadata for each time
+    """
     metadata = []
     t0 = pd.Timestamp(begin)
     while t0 + pd.DateOffset(hours=6) < pd.Timestamp(end):
@@ -23,7 +35,16 @@ def get_metadata(df, station, begin, end):
     return np.array(metadata)
 
 
-def get_labels(df, station, begin, end):
+def get_labels(df: pd.DataFrame, station: str, begin: str, end: str) \
+        -> np.array:
+    """
+    return GHI values at times t0, t0 + 1 hour, t0 + 3 hours and t0 + 6 hours
+    :param df: pandas dataframe
+    :param station: code of the station
+    :param begin: begin time string that can be converted to datetime
+    :param end: end time string that can be converted to datetime
+    :return: np.array containing labels for each time
+    """
     labels = []
     t0 = pd.Timestamp(begin)
     while t0 + pd.DateOffset(hours=6) < pd.Timestamp(end):

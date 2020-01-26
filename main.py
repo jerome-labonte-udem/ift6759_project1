@@ -1,3 +1,7 @@
+"""
+Example usage of label and metadata extracting functions followed by training
+"""
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt

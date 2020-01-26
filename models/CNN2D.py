@@ -1,5 +1,5 @@
 """
-Basic model example using a 2D CNN with 32x32x3 images as inputs and 5 metadata
+Basic model example using a 2D CNN with 32x32x3 images as inputs and metadata
 Used only for demonstration purposes and not to be used on real datas
 """
 import tensorflow as tf
