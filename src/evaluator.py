@@ -52,7 +52,7 @@ def prepare_dataloader(
         by ``target_sequences``.
     """
 
-    ################################## MODIFY BELOW ##################################
+    # MODIFY BELOW
     # WE ARE PROVIDING YOU WITH A DUMMY DATA GENERATOR FOR DEMONSTRATION PURPOSES.
     # MODIFY EVERYTHINGIN IN THIS BLOCK AS YOU SEE FIT
 
@@ -81,7 +81,7 @@ def prepare_dataloader(
         dummy_data_generator, (tf.float32, tf.float32)
     )
 
-    ################################### MODIFY ABOVE ##################################
+    # MODIFY ABOVE
 
     return data_loader
 
@@ -106,7 +106,7 @@ def prepare_model(
         A ``tf.keras.Model`` object that can be used to generate new GHI predictions given imagery tensors.
     """
 
-    ################################### MODIFY BELOW ##################################
+    # MODIFY BELOW
 
     class DummyModel(tf.keras.Model):
 
@@ -122,7 +122,7 @@ def prepare_model(
 
     model = DummyModel(target_time_offsets)
 
-    ################################### MODIFY ABOVE ##################################
+    # MODIFY ABOVE
 
     return model
 
