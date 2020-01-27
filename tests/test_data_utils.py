@@ -49,7 +49,6 @@ class TestDataUtils(unittest.TestCase):
         true_labels_t0 = np.array(list(self.df[Catalog.ghi(Station.BND)][:100].values))
 
         list_datetimes = list(self.df.index[:100].values)
-        print(list_datetimes)
         fetch_labels = get_labels_list_datetime(self.df, target_datetimes=list_datetimes,
                                                 target_time_offsets=self.target_time_offsets,
                                                 station=Station.BND)
@@ -65,17 +64,18 @@ class TestDataUtils(unittest.TestCase):
         self.assertEqual(17 * 4, offsets[1])
         self.assertEqual(19 * 4, offsets[2])
         self.assertEqual(22 * 4, offsets[3])
-
-        nine_45 = pd.Timestamp("2010-01-01T09:45:00.000000000")
+        # Starting at 9:45
+        nine_45 = pd.Timestamp(self.df.index[39])
         offsets = get_hdf5_offsets(nine_45, self.target_time_offsets)
+        self.assertEqual(self.df.iloc[39][Catalog.hdf5_8bit_offset], offsets[0])
         self.assertEqual(7, offsets[0])
         self.assertEqual(7 + 4, offsets[1])
         self.assertEqual(7 + 4 * 3, offsets[2])
         self.assertEqual(7 + 4 * 6, offsets[3])
-
-        # Starting at 8am
-        eight = pd.Timestamp("2010-01-01T08:00.000000000")
+        # Starting at 8:00
+        eight = pd.Timestamp(self.df.index[32])
         offsets = get_hdf5_offsets(eight, self.target_time_offsets)
+        self.assertEqual(self.df.iloc[32][Catalog.hdf5_8bit_offset], offsets[0])
         self.assertEqual(0, offsets[0])
         self.assertEqual(0 + 4, offsets[1])
         self.assertEqual(0 + 4 * 3, offsets[2])
