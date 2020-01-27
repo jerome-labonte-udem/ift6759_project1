@@ -1,3 +1,5 @@
+from typing import List
+
 
 class Station:
     BND = "BND"
@@ -7,6 +9,11 @@ class Station:
     PSU = "PSU"
     TBL = "TBL"
     SXF = "SXF"
+
+    @staticmethod
+    def list() -> List[str]:
+        return [Station.BND, Station.DRA, Station.FPK, Station.GWN,
+                Station.PSU, Station.TBL, Station.SXF]
 
 
 class Catalog:
@@ -23,3 +30,15 @@ class Catalog:
     @staticmethod
     def daytime(station: str) -> str:
         return f"{station}_DAYTIME"
+
+    @staticmethod
+    def ghi(station: str) -> str:
+        return f"{station}_GHI"
+
+
+class HDF5File:
+    # Attributes
+    start_time = "global_dataframe_start_time"
+    start_idx = "global_dataframe_start_idx"
+    end_time = "global_dataframe_end_time"
+    end_idx = "global_dataframe_end_idx"

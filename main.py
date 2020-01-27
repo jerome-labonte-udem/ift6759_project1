@@ -9,28 +9,27 @@ import numpy as np
 import pandas as pd
 
 from models.CNN2D import CNN2D
-from src.data_utils import get_labels, get_metadata
+from src.data_utils import get_labels_start_end, get_metadata_start_end
 
 data_path = Path("data")  # redefine data path here if needed
 df = pd.read_pickle(Path(data_path,
                          "catalog.helios.public.20100101-20160101.pkl"))
 
-train_labels = get_labels(df, "BND", "2011-01-01", "2011-12-31")
-val_labels = get_labels(df, "BND", "2012-01-01", "2012-12-31")
+train_labels = get_labels_start_end(df, "BND", "2011-01-01", "2011-12-31")
+val_labels = get_labels_start_end(df, "BND", "2012-01-01", "2012-12-31")
 
 # Run clearsky baseline before handling nan
-train_metadata = get_metadata(df, "BND", "2011-01-01",
-                              "2011-12-31")
+train_metadata = get_metadata_start_end(df, "BND", "2011-01-01",
+                                        "2011-12-31")
 train_clearsky = train_metadata[:, 0]
-val_metadata = get_metadata(df, "BND", "2012-01-01",
-                            "2012-12-31")
+val_metadata = get_metadata_start_end(df, "BND", "2012-01-01",
+                                      "2012-12-31")
 val_clearsky = val_metadata[:, 0]
 # Get average error on t0 only as it should be the same for future predictions
-train_clearsky_mse = np.nanmean((train_labels[:, 0] - train_clearsky)**2)
-val_clearsky_mse = np.nanmean((val_labels[:, 0] - val_clearsky)**2)
+train_clearsky_mse = np.nanmean((train_labels[:, 0] - train_clearsky) ** 2)
+val_clearsky_mse = np.nanmean((val_labels[:, 0] - val_clearsky) ** 2)
 print("train clearksy mse: ", train_clearsky_mse)
 print("val clearsky mse: ", val_clearsky_mse)
-
 
 df = df.fillna(0)  # Replace nan by 0 for now, should be handled correctly !!!
 # images are zeros for now both should be real images
@@ -48,12 +47,6 @@ CLEARSKY_GHI at t+3 hours, CLEARSKY_GHI at t+6 hours,
 DAYTIME (bool), day of year, hour, minute
 the method get_metada should be modified to change the type of data if needed
 """
-train_metadata = get_metadata(df, "BND", "2011-01-01",
-                              "2011-12-31")
-val_metadata = get_metadata(df, "BND", "2012-01-01", "2012-12-31")
-
-train_labels = get_labels(df, "BND", "2011-01-01", "2011-12-31")
-val_labels = get_labels(df, "BND", "2012-01-01", "2012-12-31")
 
 # create model
 model = CNN2D()
@@ -81,7 +74,6 @@ history = model.fit([train_images, train_metadata],
                                       val_labels[:, 1],
                                       val_labels[:, 2],
                                       val_labels[:, 3]]))
-
 
 plt.plot(range(1, 11), history.history['val_loss'], label='val_loss')
 plt.plot(range(1, 11), history.history['loss'], label='train_loss')

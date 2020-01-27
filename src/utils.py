@@ -223,6 +223,7 @@ def viz_hdf5_imagery(
                     station_data["ghi"] = [df.at[pd.Timestamp(t), reg + "_GHI"] for t in lut_timestamps]
                     station_data["csky"] = [df.at[pd.Timestamp(t), reg + "_CLEARSKY_GHI"] for t in lut_timestamps]
                 stations_data[reg] = station_data
+        print(stations_data)
         raw_data = np.zeros((archive_lut_size, len(channels), 650, 1500, 3), dtype=np.uint8)
         for channel_idx, channel_name in tqdm.tqdm(enumerate(channels), desc="preparing img data", total=len(channels)):
             assert channel_name in h5_data, f"missing channel: {channels}"
