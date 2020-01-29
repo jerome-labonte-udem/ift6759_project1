@@ -21,6 +21,9 @@ class TestHDF5File(unittest.TestCase):
             datetime.timedelta(hours=6)
         ]
 
+        self.hdf5_path = Path(Path(__file__).parent.parent,
+                         "data", "hdf8", "2012.01.03.0800.h5")
+
     def test_get_hdf5_offsets(self):
         midnight = pd.Timestamp(self.df.index[0])
         offsets = HDF5File.get_offsets(midnight, self.target_time_offsets)
@@ -44,3 +47,5 @@ class TestHDF5File(unittest.TestCase):
         self.assertEqual(0 + 4, offsets[1])
         self.assertEqual(0 + 4 * 3, offsets[2])
         self.assertEqual(0 + 4 * 6, offsets[3])
+
+    def test(self):
