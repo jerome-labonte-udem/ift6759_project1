@@ -1,7 +1,7 @@
 import pdb
-from src.data_utils import get_labels_list_datetime
-from src.utils import fetch_hdf5_sample
-from src.schema import HDF5File
+from src.utils.data_utils import get_labels_list_datetime
+from src.utils.visualization_utils import viz_hdf5_imagery
+from src.hdf5 import HDF5File
 from pathlib import Path
 import h5py
 import tensorflow as tf
@@ -44,24 +44,28 @@ def main():
     hdf5_path = Path(Path(__file__).parent.parent,
                      "data", "hdf8", "2012.01.03.0800.h5")
 
-    # target_channels = ["ch1", "ch2", "ch3", "ch4", "ch6"]
-    # dataframe_path = Path(Path(__file__).parent.parent,
-    #                      "data", "catalog.helios.public.20100101-20160101.pkl")
-    # stations = {"BND": (40.05192, -88.37309, 230), "TBL": (40.12498, -105.23680, 1689)}
-    # viz_hdf5_imagery(hdf5_path, target_channels, dataframe_path, stations)
+    dataframe_path = Path(Path(__file__).parent.parent,
+                          "data", "catalog.helios.public.20100101-20160101.pkl")
+    stations = {"BND": (40.05192, -88.37309, 230), "TBL": (40.12498, -105.23680, 1689)}
+    #viz_hdf5_imagery(hdf5_path, target_channels, dataframe_path, stations)
     hdf5_offset = 32
 
-    with h5py.File(hdf5_path, "r") as h5_data:
+    with h5py.File(hdf5_path, "r") as f_h5_data:
+        h5 = HDF5File(f_h5_data)
         for channel in ["ch1", "ch2", "ch3", "ch4", "ch6"]:
-            ch_data = fetch_hdf5_sample(channel, h5_data, hdf5_offset)
+            ch_data = h5.fetch_sample(channel, hdf5_offset)
             print(ch_data.shape)  # channel data is saved as 2D array (HxW))
 
-        print(f"start_time {h5_data.attrs[HDF5File.start_time]}")
-        print(f"end_time {h5_data.attrs[HDF5File.end_time]}")
-        lats = fetch_hdf5_sample("lat", h5_data, hdf5_offset)
-        lons = fetch_hdf5_sample("lon", h5_data, hdf5_offset)
-        pdb.set_trace()
+        print(f"start_time {h5.start_time}")
+        print(f"end_time {h5.end_time}")
+        lats = h5.fetch_lat(hdf5_offset)
+        lons = h5.fetch_long(hdf5_offset)
         print(f"lats {lats.shape} and longs {lons.shape}")
+        dict_coord = h5.get_stations_coordinates(lats, lons, stations)
+        print(dict_coord)
+        print(f"archive_lut_size = {h5.archive_lut_size}")
+        print(f"start_idx = {h5.start_idx} --  end_idx {h5.end_idx}")
+        h5.get_image_patches(0, dict_coord)
         # [print(dataset) for dataset in h5_data]
 
 

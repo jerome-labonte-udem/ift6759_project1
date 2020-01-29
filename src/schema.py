@@ -36,9 +36,4 @@ class Catalog:
         return f"{station}_GHI"
 
 
-class HDF5File:
-    # Attributes
-    start_time = "global_dataframe_start_time"
-    start_idx = "global_dataframe_start_idx"
-    end_time = "global_dataframe_end_time"
-    end_idx = "global_dataframe_end_idx"
+

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from models.CNN2D import CNN2D
-from src.data_utils import get_labels_start_end, get_metadata_start_end
+from src.utils.utils import get_labels_start_end, get_metadata_start_end
 
 data_path = Path("data")  # redefine data path here if needed
 df = pd.read_pickle(Path(data_path,
