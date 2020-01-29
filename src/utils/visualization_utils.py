@@ -70,7 +70,7 @@ def viz_hdf5_imagery(
             # assume lats/lons stay identical throughout all frames; just pick the first available arrays
             idx, lats, lons = 0, None, None
             while (lats is None or lons is None) and idx < h5.archive_lut_size:
-                lats, lons = h5.fetch_lat(idx), h5.fetch_long(idx)
+                lats, lons = h5.fetch_lat_long(idx)
             assert lats is not None and lons is not None, "could not fetch lats/lons arrays (hdf5 might be empty)"
             for reg, coords in tqdm.tqdm(stations.items(), desc="preparing stations data"):
                 station_coords = (np.argmin(np.abs(lats - coords[0])), np.argmin(np.abs(lons - coords[1])))

@@ -3,11 +3,11 @@ utility functions to extract data from pandas dataframe
 """
 import numpy as np
 import pandas as pd
-from typing import List
+import os
+from typing import List, Tuple, Optional
 import datetime
-from pathlib import Path
 import h5py
-from src.schema import Catalog
+from src.schema import Catalog, Station
 from src.hdf5 import HDF5File
 
 
@@ -85,21 +85,44 @@ def get_labels_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime.d
 
 
 def get_hdf5_samples_list_datetime(
-        directory: Path,
+        df_metadata: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
-        target_time_offsets: List[datetime.timedelta],
-        station: str
-):
-    for begin in target_datetimes:
-        t0 = pd.Timestamp(begin)
-        # TODO: handle if the starting time is between 2am and 7:45 am
-        hdf5_path = Path(directory, f"{t0.year}.{t0.month}.{t0.day}.0800.h5")
+        station: str,
+        directory: Optional[str] = None,
+) -> Tuple[List[np.array], List[int]]:
+    """
+    :param df_metadata: catalog.pkl
+    :param target_datetimes:
+    :param station:
+    :param directory: If directory is not provided, use the path from catalog dataframe,
+    else use the directory provided but with same filename
+    :return: Tuple[patches as np,array, list of index of invalid target_datimes (no picture)]
+    """
+    # TODO : Deal with changes of file if target_time_offsets is in the future ?
+    paths = [df_metadata.at[pd.Timestamp(t), Catalog.hdf5_8bit_path] for t in target_datetimes]
+    offsets = [df_metadata.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
+    patches = []
+    # List of invalid indexes in array, (no data, invalid path, etc.)
+    invalids_i = []
+    for i, begin in enumerate(target_datetimes):
+        if directory is None:
+            hdf5_path = paths[i]
+        else:
+            folder, filename = os.path.split(paths[i])
+            hdf5_path = os.path.join(directory, filename)
         with h5py.File(hdf5_path, "r") as f_h5:
             h5 = HDF5File(f_h5)
-            for channel in ["ch1", "ch2", "ch3", "ch4", "ch6"]:
-                hdf5_offsets = HDF5File.get_offsets(t0, target_time_offsets)
-                for offset in hdf5_offsets:
-                    ch_data = h5.fetch_sample(channel, offset)
-                    print(ch_data.shape)
-                    # TODO: crop here
-                    pass
+
+            lats, lons = None, None
+            j = 0
+            while lats is None or lons is None:
+                lats, lons = h5.fetch_lat_long(j)
+                j += 1
+
+            station_coords = h5.get_stations_coordinates(lats, lons, {station: Station.LATS_LONS[station]})
+            patch = h5.get_image_patches(offsets[i], station_coords)
+            if not patch:
+                invalids_i.append(i)
+            else:
+                patches.append(patch[station])
+    return patches, invalids_i

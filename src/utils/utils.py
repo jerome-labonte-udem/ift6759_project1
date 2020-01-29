@@ -99,5 +99,3 @@ def decompress_array(
     if shape is not None:
         array = array.reshape(shape)
     return array
-
-

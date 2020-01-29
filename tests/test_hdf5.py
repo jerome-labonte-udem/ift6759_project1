@@ -2,15 +2,18 @@ import unittest
 from pathlib import Path
 import pandas as pd
 import datetime
-from src.schema import Catalog
+import h5py
+import numpy as np
+from src.schema import Catalog, Station
 from src.hdf5 import HDF5File
+from src.data_pipeline import hdf5_dataloader
 
 
 class TestHDF5File(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.data_path = Path(Path(__file__).parent.parent, "data",
-                              "catalog.helios.public.20100101-20160101.pkl")
+        self.data_dir = Path(Path(__file__).parent.parent, "data")
+        self.data_path = Path(self.data_dir, "catalog.helios.public.20100101-20160101.pkl")
         self.df = pd.read_pickle(self.data_path)
         # Typical target_datetimes, but we should be able to take as inputs
         # different ones according to evaluator.py
@@ -21,8 +24,9 @@ class TestHDF5File(unittest.TestCase):
             datetime.timedelta(hours=6)
         ]
 
-        self.hdf5_path = Path(Path(__file__).parent.parent,
-                         "data", "hdf8", "2012.01.03.0800.h5")
+        self.datetime_start_hdf5 = np.datetime64('2012-01-03T08:00:00.000000000')
+        self.hdf8_dir = Path(self.data_dir, "hdf5v7_8bit")
+        self.hdf5_path = Path(self.hdf8_dir, "2012.01.08.0800.h5")
 
     def test_get_hdf5_offsets(self):
         midnight = pd.Timestamp(self.df.index[0])
@@ -48,4 +52,61 @@ class TestHDF5File(unittest.TestCase):
         self.assertEqual(0 + 4 * 3, offsets[2])
         self.assertEqual(0 + 4 * 6, offsets[3])
 
-    def test(self):
+    def test_extract_patches(self):
+        """ Test to extract a (x,y) patch from a hdf5 file given an index. """
+        sample_idx = 32
+        patch_size = (16, 16)
+        with h5py.File(self.hdf5_path, "r") as f_h5_data:
+            h5 = HDF5File(f_h5_data)
+            lats, lons = h5.fetch_lat_long(sample_idx)
+            dict_coord = h5.get_stations_coordinates(lats, lons, Station.LATS_LONS)
+            station_patches = h5.get_image_patches(0, dict_coord, patch_size=patch_size)
+            for station, patches in station_patches.items():
+                self.assertEqual((len(h5.CHANNELS), patch_size[0], patch_size[1]), patches.shape)
+
+    def test_lats_lons_constant(self):
+        """ This test was to verify if the lats/lons are all the same
+        for the whole hdf5 file. They are indeed equal, meaning that we can only
+        take the first one that is valid """
+        with h5py.File(self.hdf5_path, "r") as f_h5_data:
+            h5 = HDF5File(f_h5_data)
+            lats, lons = h5.fetch_lat_long(0)
+            for idx in range(h5.archive_lut_size):
+                new_lats, new_lons = h5.fetch_lat_long(idx)
+                if new_lats is None or new_lons is None:
+                    # print(f"No lats/longs for idx {idx}")
+                    continue
+                np.testing.assert_equal(lats, new_lats)
+
+    def test_hdf5_dataloader(self):
+        # Get target_datetimes for the whole day (1 hdf5 file)
+        with h5py.File(self.hdf5_path, "r") as f_h5_data:
+            h5 = HDF5File(f_h5_data)
+            target_datetimes = h5.lut_time_stamps()
+        # Only test on using t0 for label
+        target_time_offsets = [datetime.timedelta(hours=0)]
+        dataset = hdf5_dataloader(self.df, target_datetimes, Station.LATS_LONS,
+                                  target_time_offsets, data_directory=self.hdf8_dir,
+                                  batch_size=4, test_time=False)
+
+        for sample, target in dataset:
+            self.assertEqual(len(sample), len(target))
+
+        # Test dataloader at test time
+        dataset = hdf5_dataloader(self.df, target_datetimes, Station.LATS_LONS,
+                                  target_time_offsets, data_directory=self.hdf8_dir,
+                                  batch_size=4, test_time=True)
+        for sample, target in dataset:
+            self.assertEqual(len(sample), len(target))
+            self.assertTrue(target[0] == 0)
+            break
+
+    def test_get_stations_coords(self):
+        with h5py.File(self.hdf5_path, "r") as f_h5_data:
+            h5 = HDF5File(f_h5_data)
+            lats, lons = h5.fetch_lat_long(0)
+            stations_coords = h5.get_stations_coordinates(lats, lons, Station.LATS_LONS)
+            for x, y in stations_coords.values():
+                print(x, y)
+                self.assertTrue(0 <= x < Catalog.size_image[0])
+                self.assertTrue(0 <= y < Catalog.size_image[1])

@@ -6,7 +6,6 @@ from src.utils.utils import decompress_array
 
 
 class HDF5File:
-
     CHANNELS = ["ch1", "ch2", "ch3", "ch4", "ch6"]
 
     def __init__(self, hdf5_file):
@@ -86,13 +85,9 @@ class HDF5File:
             array = decompress_array(dataset[sample_idx], compr_type=compr_type, dtype=orig_dtype, shape=orig_shape)
         return array
 
-    def fetch_lat(self, sample_idx: int):
-        # Fetch latitude
-        return self.fetch_sample("lat", sample_idx)
-
-    def fetch_long(self, sample_idx: int):
-        # Fetch longitude
-        return self.fetch_sample("lon", sample_idx)
+    def fetch_lat_long(self, sample_idx: int) -> Tuple:
+        # Fetch (latitude, longitude) from file
+        return self.fetch_sample("lat", sample_idx), self.fetch_sample("lon", sample_idx)
 
     def orig_min(self, channel_name: str):
         return self.file[channel_name].attrs.get("orig_min", None)
@@ -101,26 +96,31 @@ class HDF5File:
         return self.file[channel_name].attrs.get("orig_max", None)
 
     @staticmethod
-    def get_stations_coordinates(lats, lons, stations: Dict[str, Tuple]) -> Dict[str, Tuple]:
+    def get_stations_coordinates(lats, lons, stations_lats_lons: Dict[str, Tuple]) -> Dict[str, Tuple]:
         """
         Taken from viz_hdf5_imagery()
         :param lats:
         :param lons:
-        :param stations: dictionnary of str -> (latitude, longitude) of the station(s)
+        :param stations_lats_lons: dictionnary of str -> (latitude, longitude) of the station(s)
         :return: dictionnary of str -> (coord_x, coord_y) in the numpy array
         """
-        for reg, coords in stations.items():
-            station_coords = (np.argmin(np.abs(lats - coords[0])), np.argmin(np.abs(lons - coords[1])))
-            stations[reg] = station_coords
-        return stations
+        stations_coords = {}
+        for reg, lats_lons in stations_lats_lons.items():
+            coords = (np.argmin(np.abs(lats - lats_lons[0])), np.argmin(np.abs(lons - lats_lons[1])))
+            stations_coords[reg] = coords
+        return stations_coords
 
-    def get_image_patches(self, sample_idx: int, stations_coords: Dict[str, Tuple], patch_size=(16, 16)):
+    def get_image_patches(self, sample_idx: int, stations_coords: Dict[str, Tuple], patch_size=(16, 16))\
+            -> Dict[str, np.array]:
         """
         :param sample_idx: index in the hdf5 file
         :param stations_coords: dictionnary of str -> (coord_x, coord_y) in the numpy array
         :param patch_size: size of the image crop that we will take
         :return: patches: dictionnary of station (str) -> patch input (pixels)
+        where patch.shape == (len(CHANNELS), patch_size[0], patch_size[1])
         """
+        if len(next(iter(stations_coords.values()))) != 2:
+            raise ValueError(f"Invalid stations_coords, should be of len = 2 (x_coord, y_coord)")
         if patch_size[0] != patch_size[1]:
             raise NotImplementedError("Handling of non-squared patches is not implemented")
         if patch_size[0] % 2 != 0:
@@ -128,17 +128,24 @@ class HDF5File:
 
         channel_data = [self.fetch_sample(channel_name, sample_idx) for channel_name in self.CHANNELS]
         channel_data = np.asarray(channel_data)  # transform to np.array for multidimensional slicing
+        for data in channel_data:
+            print(data.shape)
+            if data is None:
+                print("One channel or more is None --> skip image")
+                return {}
         patches = {}
         for reg, coords in stations_coords.items():
-            x_idx = (coords[0] - patch_size[0] // 2, coords[0] + patch_size[0] // 2)
-            y_idx = (coords[1] - patch_size[0] // 2, coords[1] + patch_size[0] // 2)
+            x_idx = (int(coords[0] - patch_size[0] // 2), int(coords[0] + patch_size[0] // 2))
+            y_idx = (int(coords[1] - patch_size[0] // 2), int(coords[1] + patch_size[0] // 2))
             patches[reg] = channel_data[:, x_idx[0]:x_idx[1], y_idx[0]:y_idx[1]]
         return patches
 
     @staticmethod
     def get_offsets(t0: pd.Timestamp, target_time_offsets: List[datetime.timedelta]) -> List[int]:
         """ Transform essentially a list of timestamps into hdf5_offsets to retrieve images
-        e.g. hdf5_offset = 32  -> corresponds to: 2010.06.01.0800 + (32)*15min = 2010.06.01.1600"""
+        e.g. hdf5_offset = 32  -> corresponds to: 2010.06.01.0800 + (32)*15min = 2010.06.01.1600
+        This is also referred as sample_idx in other functions
+        """
         hdf5_offsets = []
         start_day = t0.replace(hour=8, minute=0, second=0)
         for time_offset in target_time_offsets:

@@ -49,6 +49,8 @@ class TestDataUtils(unittest.TestCase):
         true_labels_t0 = np.array(list(self.df[Catalog.ghi(Station.BND)][:100].values))
 
         list_datetimes = list(self.df.index[:100].values)
+        import pdb
+        pdb.set_trace()
         fetch_labels = get_labels_list_datetime(self.df, target_datetimes=list_datetimes,
                                                 target_time_offsets=self.target_time_offsets,
                                                 station=Station.BND)

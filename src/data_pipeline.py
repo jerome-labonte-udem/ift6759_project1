@@ -1,73 +1,61 @@
-import pdb
-from src.utils.data_utils import get_labels_list_datetime
-from src.utils.visualization_utils import viz_hdf5_imagery
-from src.hdf5 import HDF5File
-from pathlib import Path
-import h5py
+from src.utils.data_utils import get_labels_list_datetime, get_hdf5_samples_list_datetime
 import tensorflow as tf
 import pandas as pd
-from typing import List, Dict, Tuple, AnyStr
+from typing import List, Dict, Tuple, Any, AnyStr
 import datetime
 import random
 
 
-class HDF5Dataset(tf.data.Dataset):
-
-    def _generator(batch_size, target_datetimes, target_time_offsets, df, stations):
-        """ Generate dummy data for the model, only for example purposes. """
-        image_dim = (64, 64)
-        # TODO: How do we choose the station ? For now random sampling
-        station_str = random.choice(stations.keys())
+def hdf5_dataloader(
+        dataframe: pd.DataFrame,
+        target_datetimes: List[datetime.datetime],
+        stations: Dict[AnyStr, Tuple[float, float, float]],
+        target_time_offsets: List[datetime.timedelta],
+        batch_size: int,
+        data_directory: str,
+        test_time: bool,
+        config: Dict[AnyStr, Any] = None
+) -> tf.data.Dataset:
+    """
+    Args:
+        dataframe: a pandas dataframe that provides the netCDF file path (or HDF5 file path and offset) for all
+            relevant timestamp values over the test period.
+        target_datetimes: a list of timestamps that your data loader should use to provide imagery for your model.
+            The ordering of this list is important, as each element corresponds to a sequence of GHI values
+            to predict. By definition, the GHI values must be provided for the offsets given by ``target_time_offsets``
+            which are added to each timestamp (T=0) in this datetimes list.
+        stations: a map of station names of interest paired with their coordinates (latitude, longitude, elevation).
+        target_time_offsets: the list of timedeltas to predict GHIs for (by definition: [T=0, T+1h, T+3h, T+6h]).
+        config: configuration dictionary holding any extra parameters that might be required by the user. These
+            parameters are loaded automatically if the user provided a JSON file in their submission. Submitting
+            such a JSON file is completely optional, and this argument can be ignored if not needed.
+        batch_size:
+        data_directory:
+        test_time: if test_time, return None as target
+    Returns:
+        A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
+        must correspond to one sequence of past imagery data. The tensors must be generated in the order given
+        by ``target_sequences``.
+    """
+    def data_generator():
         for i in range(0, len(target_datetimes), batch_size):
+            # TODO: How do we choose the station ? For now random sampling
+            station_str = random.choice(list(stations.keys()))
+            print(f"Sampled station {station_str}")
+
             batch_of_datetimes = target_datetimes[i:i + batch_size]
-            samples = tf.random.uniform(shape=(
-                len(batch_of_datetimes), image_dim[0], image_dim[1], 5
-            ))
-            targets = get_labels_list_datetime(df, batch_of_datetimes, target_time_offsets, station_str)
-            # Remember that you do not have access to the targets.
-            # Your dataloader should handle this accordingly.
+            samples, invalids_i = get_hdf5_samples_list_datetime(dataframe, batch_of_datetimes, station_str,
+                                                                 directory=data_directory)
+            # TODO: use invalids_i to match samples with targets
+            if test_time:
+                targets = tf.zeros(shape=batch_size)
+            else:
+                # TODO: get invalid targets here and remove them
+                targets = get_labels_list_datetime(dataframe, batch_of_datetimes,
+                                                   target_time_offsets, station_str)
             yield samples, targets
 
-    def __new__(cls, target_datetimes: List[datetime.datetime],
-                target_time_offsets: List[datetime.timedelta],
-                stations: Dict[AnyStr, Tuple[float, float, float]],
-                df_metadata: pd.DataFrame, batch_size=3):
-        return tf.data.Dataset.from_generator(
-            cls._generator,
-            output_types=tf.dtypes.int64,
-            output_shapes=(1,),
-            args=(batch_size, target_datetimes, target_time_offsets, df_metadata, stations)
-        )
-
-
-def main():
-    hdf5_path = Path(Path(__file__).parent.parent,
-                     "data", "hdf8", "2012.01.03.0800.h5")
-
-    dataframe_path = Path(Path(__file__).parent.parent,
-                          "data", "catalog.helios.public.20100101-20160101.pkl")
-    stations = {"BND": (40.05192, -88.37309, 230), "TBL": (40.12498, -105.23680, 1689)}
-    #viz_hdf5_imagery(hdf5_path, target_channels, dataframe_path, stations)
-    hdf5_offset = 32
-
-    with h5py.File(hdf5_path, "r") as f_h5_data:
-        h5 = HDF5File(f_h5_data)
-        for channel in ["ch1", "ch2", "ch3", "ch4", "ch6"]:
-            ch_data = h5.fetch_sample(channel, hdf5_offset)
-            print(ch_data.shape)  # channel data is saved as 2D array (HxW))
-
-        print(f"start_time {h5.start_time}")
-        print(f"end_time {h5.end_time}")
-        lats = h5.fetch_lat(hdf5_offset)
-        lons = h5.fetch_long(hdf5_offset)
-        print(f"lats {lats.shape} and longs {lons.shape}")
-        dict_coord = h5.get_stations_coordinates(lats, lons, stations)
-        print(dict_coord)
-        print(f"archive_lut_size = {h5.archive_lut_size}")
-        print(f"start_idx = {h5.start_idx} --  end_idx {h5.end_idx}")
-        h5.get_image_patches(0, dict_coord)
-        # [print(dataset) for dataset in h5_data]
-
-
-if __name__ == "__main__":
-    main()
+    data_loader = tf.data.Dataset.from_generator(
+        data_generator, (tf.float32, tf.float32)
+    )
+    return data_loader
