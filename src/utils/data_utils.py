@@ -141,10 +141,11 @@ def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime
 def get_hdf5_samples_from_day(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
-        patch_size,
+        patch_size: Tuple[int, int],
         directory: Optional[str] = None,
 ) -> Tuple[List[np.array], List[int]]:
     """
+    Get len(target_datetimes) sample from only one .hdf5 file
     :param patch_size:
     :param target_datetimes:
     :param df: catalog.pkl

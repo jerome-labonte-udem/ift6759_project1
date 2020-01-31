@@ -50,7 +50,7 @@ class TestHDF5File(unittest.TestCase):
             h5 = HDF5File(f_h5_data)
             patches = h5.get_image_patches(sample_idx, Station.COORDS, patch_size=patch_size)
             for patch in patches:
-                self.assertEqual((len(h5.CHANNELS), patch_size[0], patch_size[1]), patch.shape)
+                self.assertEqual((patch_size[0], patch_size[1], len(h5.CHANNELS)), patch.shape)
 
     def test_lats_lons_constant(self):
         """ This test was to verify if the lats/lons are all the same

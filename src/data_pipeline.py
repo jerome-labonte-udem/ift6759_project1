@@ -1,6 +1,6 @@
 import tensorflow as tf
 import pandas as pd
-from typing import List, Dict, Any, AnyStr
+from typing import List, Dict, Any, AnyStr, Tuple
 import datetime
 from src.schema import Station
 from src.utils.data_utils import (
@@ -16,7 +16,7 @@ def hdf5_dataloader_list_of_days(
         data_directory: str,
         test_time: bool,
         config: Dict[AnyStr, Any] = None,
-        patch_size=(32, 32)
+        patch_size: Tuple[int, int] = (32, 32)
 ) -> tf.data.Dataset:
     """
     Dataloader that takes as argument a list of days (datetime.datetime but where the only thing that matters
@@ -33,12 +33,11 @@ def hdf5_dataloader_list_of_days(
         batch_size: Samples per batch. -- The real batch_size will be num_stations * batch_size --
         data_directory: Provide a data_directory if the directory is not the same as the paths from the dataframe
         test_time: if test_time, return None as target
+        patch_size:
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
         by ``target_sequences``.
-        :param patch_size:
-
     """
 
     def data_generator():

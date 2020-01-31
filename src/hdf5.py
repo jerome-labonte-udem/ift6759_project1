@@ -54,7 +54,6 @@ class HDF5File:
             dataset_name: name of the HDF5 dataset to fetch the sample from using the reader. In the context of
                 the GHI prediction project, this may be for example an imagery channel name (e.g. "ch1").
             sample_idx: the integer index (or offset) that corresponds to the position of the sample in the dataset.
-
         Returns:
             The sample. This function will automatically decompress the sample if it was compressed. It the sample is
             unavailable because the input was originally masked, the function will return ``None``. The sample itself
@@ -115,14 +114,14 @@ class HDF5File:
             self,
             sample_idx: int,
             stations_coords: collections.OrderedDict,
-            patch_size=(16, 16)
+            patch_size: Tuple[int, int] = (16, 16)
     ) -> List[np.array]:
         """
         :param sample_idx: index in the hdf5 file
         :param stations_coords: dictionnary of str -> (coord_x, coord_y) in the numpy array
         :param patch_size: size of the image crop that we will take
-        :return: patches: dictionnary of station (str) -> patch input (pixels)
-        where patch.shape == (len(CHANNELS), patch_size[0], patch_size[1])
+        :return: patches: List of patches where each patch has shape
+        (patch_size[0], patch_size[1], N_CHANNELS)
         """
         if len(next(iter(stations_coords.values()))) != 2:
             raise ValueError(f"Invalid stations_coords, should be of len = 2, i.e. (x_coord, y_coord)")

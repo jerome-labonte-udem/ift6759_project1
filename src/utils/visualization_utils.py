@@ -144,7 +144,6 @@ def preplot_live_ghi_curves(
         plot_title: typing.Optional[typing.AnyStr] = None,
 ) -> np.ndarray:
     """Pre-plots a set of GHI curves with update bars and returns the raw pixel arrays.
-
     This function is used in ``viz_hdf5_imagery`` to prepare GHI plots when stations & dataframe information
     is available.
     """
