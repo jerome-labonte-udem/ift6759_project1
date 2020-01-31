@@ -83,8 +83,8 @@ def get_labels_list_datetime(
     labels = []
     for begin in target_datetimes:
         t0 = pd.Timestamp(begin)
-        label = []
         for station in stations.keys():
+            label = []
             for offset in target_time_offsets:
                 label.append(df.loc[t0 + offset, Catalog.ghi(station)])
             labels.append(label)
@@ -149,6 +149,7 @@ def filter_catalog(df: pd.DataFrame, remove_invalid_labels: bool) -> pd.DataFram
     :param df: catalog.pkl
     :return: catalog.pkl without invalid entries
     """
+    # TODO: Can't actually use this because we need to keep rows for GHI values if they are in t+1, t+3, t+6
     # TODO: Maybe there is a way to speed this up ? But only takes 1-2 seconds
     invalid_hours = [
         (0, 0), (0, 30), (3, 0), (6, 0), (9, 0),

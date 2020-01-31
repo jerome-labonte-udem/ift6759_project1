@@ -29,8 +29,8 @@ def hdf5_dataloader_list_of_days(
         config: configuration dictionary holding any extra parameters that might be required by the user. These
             parameters are loaded automatically if the user provided a JSON file in their submission. Submitting
             such a JSON file is completely optional, and this argument can be ignored if not needed.
-        batch_size:
-        data_directory:
+        batch_size: Samples per batch. -- The real batch_size will be num_stations * batch_size --
+        data_directory: Provide a data_directory if the directory is not the same as the paths from the dataframe
         test_time: if test_time, return None as target
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
@@ -60,6 +60,7 @@ def hdf5_dataloader_list_of_days(
                                                    target_time_offsets, Station.COORDS)
             yield samples, targets
 
+    # TODO: Check if that's how prefetch should be used
     data_loader = tf.data.Dataset.from_generator(
         data_generator, (tf.float32, tf.float32)
     ).prefetch(tf.data.experimental.AUTOTUNE)

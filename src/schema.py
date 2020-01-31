@@ -1,5 +1,6 @@
 from typing import List
 from collections import OrderedDict
+import datetime
 
 
 class Station:
@@ -62,3 +63,14 @@ class Catalog:
     @staticmethod
     def cloudiness(station: str) -> str:
         return f"{station}_CLOUDINESS"
+
+
+def get_target_time_offsets():
+    """ This format is to be compatible with evaluator.py
+    We want to evaluate at t0, t0+1, t0+3, t0+6 """
+    return [
+        datetime.timedelta(hours=0),
+        datetime.timedelta(hours=1),
+        datetime.timedelta(hours=3),
+        datetime.timedelta(hours=6)
+    ]
