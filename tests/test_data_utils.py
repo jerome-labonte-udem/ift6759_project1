@@ -2,9 +2,10 @@ import unittest
 import pandas as pd
 from pathlib import Path
 from src.utils.data_utils import (
-    get_metadata_start_end, get_labels_start_end, get_labels_list_datetime
+    get_metadata_start_end, get_labels_start_end, get_labels_list_datetime, random_timestamps_from_day,
+    filter_catalog
 )
-from src.schema import Station, Catalog
+from src.schema import Station
 import datetime
 import numpy as np
 
@@ -24,6 +25,7 @@ class TestDataUtils(unittest.TestCase):
             datetime.timedelta(hours=3),
             datetime.timedelta(hours=6)
         ]
+        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2012-01-03T08:00:00.000000000'))
 
     def test_get_metadata_start_end(self):
         # If end < start, return nothing
@@ -46,15 +48,20 @@ class TestDataUtils(unittest.TestCase):
 
     def test_get_labels_list_datetime(self):
         # Test that we can correctly fetch 100 labels from a station
-        true_labels_t0 = np.array(list(self.df[Catalog.ghi(Station.BND)][:100].values))
-
+        # true_labels_t0 = np.array(list(self.df[Catalog.ghi(Station.BND)][:100].values))
         list_datetimes = list(self.df.index[:100].values)
-        import pdb
-        pdb.set_trace()
         fetch_labels = get_labels_list_datetime(self.df, target_datetimes=list_datetimes,
                                                 target_time_offsets=self.target_time_offsets,
-                                                station=Station.BND)
-        self.assertEqual(100, len(fetch_labels))
+                                                stations=Station.COORDS)
+        self.assertEqual(100 * len(Station.COORDS), len(fetch_labels))
 
-        # Make sure we fetched the right labels
-        assert (true_labels_t0 == fetch_labels[:, 0]).all()
+    def test_random_timestamps_from_day(self):
+        """ Test that starting from one day, we can randomly sample X timestamps from that day """
+        bs = 10
+        ts = random_timestamps_from_day(self.df, self.datetime_hdf5_test, batch_size=bs)
+        self.assertEqual(10, len(ts))
+
+    def test_filter_catalog(self):
+        len_df_bef = len(self.df)
+        df = filter_catalog(self.df, remove_invalid_labels=True)
+        self.assertTrue(len(df) < len_df_bef)

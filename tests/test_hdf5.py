@@ -6,7 +6,8 @@ import h5py
 import numpy as np
 from src.schema import Catalog, Station
 from src.hdf5 import HDF5File
-from src.data_pipeline import hdf5_dataloader
+from src.data_pipeline import hdf5_dataloader_list_of_days
+from src.utils.data_utils import filter_catalog
 
 
 class TestHDF5File(unittest.TestCase):
@@ -23,8 +24,7 @@ class TestHDF5File(unittest.TestCase):
             datetime.timedelta(hours=3),
             datetime.timedelta(hours=6)
         ]
-
-        self.datetime_start_hdf5 = np.datetime64('2012-01-03T08:00:00.000000000')
+        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2012-01-03T08:00:00.000000000'))
         self.hdf8_dir = Path(self.data_dir, "hdf5v7_8bit")
         self.hdf5_path = Path(self.hdf8_dir, "2012.01.08.0800.h5")
 
@@ -54,15 +54,13 @@ class TestHDF5File(unittest.TestCase):
 
     def test_extract_patches(self):
         """ Test to extract a (x,y) patch from a hdf5 file given an index. """
-        sample_idx = 32
+        sample_idx = 0
         patch_size = (16, 16)
         with h5py.File(self.hdf5_path, "r") as f_h5_data:
             h5 = HDF5File(f_h5_data)
-            lats, lons = h5.fetch_lat_long(sample_idx)
-            dict_coord = h5.get_stations_coordinates(lats, lons, Station.LATS_LONS)
-            station_patches = h5.get_image_patches(0, dict_coord, patch_size=patch_size)
-            for station, patches in station_patches.items():
-                self.assertEqual((len(h5.CHANNELS), patch_size[0], patch_size[1]), patches.shape)
+            patches = h5.get_image_patches(sample_idx, Station.COORDS, patch_size=patch_size)
+            for patch in patches:
+                self.assertEqual((len(h5.CHANNELS), patch_size[0], patch_size[1]), patch.shape)
 
     def test_lats_lons_constant(self):
         """ This test was to verify if the lats/lons are all the same
@@ -78,35 +76,41 @@ class TestHDF5File(unittest.TestCase):
                     continue
                 np.testing.assert_equal(lats, new_lats)
 
-    def test_hdf5_dataloader(self):
-        # Get target_datetimes for the whole day (1 hdf5 file)
-        with h5py.File(self.hdf5_path, "r") as f_h5_data:
-            h5 = HDF5File(f_h5_data)
-            target_datetimes = h5.lut_time_stamps()
-        # Only test on using t0 for label
-        target_time_offsets = [datetime.timedelta(hours=0)]
-        dataset = hdf5_dataloader(self.df, target_datetimes, Station.LATS_LONS,
-                                  target_time_offsets, data_directory=self.hdf8_dir,
-                                  batch_size=4, test_time=False)
+    def test_hdf5_dataloader_list_of_days(self):
+        """
+        Try dataloader with both filtered catalog (invalid rows removed)
+        And with non-filtered catalog, to make sure we can handle missing values
+        """
+        batch_size = 4
+        for i, df in enumerate([self.df, filter_catalog(self.df, remove_invalid_labels=True)]):
+            # Actually using same day 3 times since there is a random sampling involved
+            list_days = [self.datetime_hdf5_test] * 3
+            target_time_offsets = [datetime.timedelta(hours=0)]
+            dataset = hdf5_dataloader_list_of_days(df, list_days,
+                                                   target_time_offsets, data_directory=self.hdf8_dir,
+                                                   batch_size=batch_size, test_time=False)
+            for sample, target in dataset:
+                self.assertEqual(len(sample), len(target))
+                # If df is filtered properly, we should never get invalid values
+                if i == 1:
+                    self.assertEqual(len(sample), batch_size * len(Station.list()))
 
-        for sample, target in dataset:
-            self.assertEqual(len(sample), len(target))
-
-        # Test dataloader at test time
-        dataset = hdf5_dataloader(self.df, target_datetimes, Station.LATS_LONS,
-                                  target_time_offsets, data_directory=self.hdf8_dir,
-                                  batch_size=4, test_time=True)
-        for sample, target in dataset:
-            self.assertEqual(len(sample), len(target))
-            self.assertTrue(target[0] == 0)
-            break
+            # Test dataloader at test time
+            dataset = hdf5_dataloader_list_of_days(df, list_days,
+                                                   target_time_offsets, data_directory=self.hdf8_dir,
+                                                   batch_size=batch_size, test_time=True)
+            for sample, target in dataset:
+                self.assertEqual(len(sample), len(target))
+                if i == 1:
+                    self.assertEqual(len(sample), batch_size * len(Station.list()))
 
     def test_get_stations_coords(self):
+        """ Test to generate station coordinates (in pixel) on the (650, 1500) images """
         with h5py.File(self.hdf5_path, "r") as f_h5_data:
             h5 = HDF5File(f_h5_data)
             lats, lons = h5.fetch_lat_long(0)
             stations_coords = h5.get_stations_coordinates(lats, lons, Station.LATS_LONS)
-            for x, y in stations_coords.values():
-                print(x, y)
+            for k, (x, y) in stations_coords.items():
+                print(f"{k} = ({x}, {y})")
                 self.assertTrue(0 <= x < Catalog.size_image[0])
                 self.assertTrue(0 <= y < Catalog.size_image[1])

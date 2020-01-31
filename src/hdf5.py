@@ -1,6 +1,7 @@
 import datetime
 import numpy as np
 from typing import List, Any, Dict, Tuple
+import collections
 import pandas as pd
 from src.utils.utils import decompress_array
 
@@ -110,8 +111,12 @@ class HDF5File:
             stations_coords[reg] = coords
         return stations_coords
 
-    def get_image_patches(self, sample_idx: int, stations_coords: Dict[str, Tuple], patch_size=(16, 16))\
-            -> Dict[str, np.array]:
+    def get_image_patches(
+            self,
+            sample_idx: int,
+            stations_coords: collections.OrderedDict,
+            patch_size=(16, 16)
+    ) -> List[np.array]:
         """
         :param sample_idx: index in the hdf5 file
         :param stations_coords: dictionnary of str -> (coord_x, coord_y) in the numpy array
@@ -120,7 +125,7 @@ class HDF5File:
         where patch.shape == (len(CHANNELS), patch_size[0], patch_size[1])
         """
         if len(next(iter(stations_coords.values()))) != 2:
-            raise ValueError(f"Invalid stations_coords, should be of len = 2 (x_coord, y_coord)")
+            raise ValueError(f"Invalid stations_coords, should be of len = 2, i.e. (x_coord, y_coord)")
         if patch_size[0] != patch_size[1]:
             raise NotImplementedError("Handling of non-squared patches is not implemented")
         if patch_size[0] % 2 != 0:
@@ -129,15 +134,15 @@ class HDF5File:
         channel_data = [self.fetch_sample(channel_name, sample_idx) for channel_name in self.CHANNELS]
         channel_data = np.asarray(channel_data)  # transform to np.array for multidimensional slicing
         for data in channel_data:
-            print(data.shape)
             if data is None:
-                print("One channel or more is None --> skip image")
-                return {}
-        patches = {}
-        for reg, coords in stations_coords.items():
+                # One channel or more is None --> skip image
+                return []
+        patches = []
+        # Stations_coords is OrderedDict so won't mess up the order
+        for coords in stations_coords.values():
             x_idx = (int(coords[0] - patch_size[0] // 2), int(coords[0] + patch_size[0] // 2))
             y_idx = (int(coords[1] - patch_size[0] // 2), int(coords[1] + patch_size[0] // 2))
-            patches[reg] = channel_data[:, x_idx[0]:x_idx[1], y_idx[0]:y_idx[1]]
+            patches.append(channel_data[:, x_idx[0]:x_idx[1], y_idx[0]:y_idx[1]])
         return patches
 
     @staticmethod
