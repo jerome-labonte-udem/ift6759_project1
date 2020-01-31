@@ -41,9 +41,9 @@ class TestDataUtils(unittest.TestCase):
         # Test that we can correctly fetch 100 labels from a station
         # true_labels_t0 = np.array(list(self.df[Catalog.ghi(Station.BND)][:100].values))
         list_datetimes = list(self.df.index[:100].values)
-        fetch_labels = get_labels_list_datetime(self.df, target_datetimes=list_datetimes,
-                                                target_time_offsets=get_target_time_offsets(),
-                                                stations=Station.COORDS)
+        fetch_labels, _ = get_labels_list_datetime(self.df, target_datetimes=list_datetimes,
+                                                   target_time_offsets=get_target_time_offsets(),
+                                                   stations=Station.COORDS)
         self.assertEqual(100 * len(Station.COORDS), len(fetch_labels))
 
     def test_random_timestamps_from_day(self):

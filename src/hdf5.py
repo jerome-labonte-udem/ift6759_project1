@@ -133,6 +133,7 @@ class HDF5File:
 
         channel_data = [self.fetch_sample(channel_name, sample_idx) for channel_name in self.CHANNELS]
         channel_data = np.asarray(channel_data)  # transform to np.array for multidimensional slicing
+        # TODO: Maybe check if data can also be invalid (e.g. NaN values) ?
         for data in channel_data:
             if data is None:
                 # One channel or more is None --> skip image

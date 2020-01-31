@@ -38,6 +38,7 @@ def hdf5_dataloader_list_of_days(
         by ``target_sequences``.
 
     """
+
     def data_generator():
         for i in range(0, len(target_days)):
             # Generate randomly batch_size timestamps from that given day
@@ -54,10 +55,12 @@ def hdf5_dataloader_list_of_days(
             if test_time:
                 targets = tf.zeros(shape=len(batch_of_datetimes) * len(Station.COORDS))
             else:
-                # TODO: Deal with invalid targets here and remove them
-                # TODO: But not a problem if remove rows with ivalid GHIs at train time
-                targets = get_labels_list_datetime(dataframe, batch_of_datetimes,
-                                                   target_time_offsets, Station.COORDS)
+                targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
+                                                                  target_time_offsets, Station.COORDS)
+                # Remove samples at indexes of invalid targets
+                for index in sorted(invalid_idx_t, reverse=True):
+                    del samples[index]
+
             yield samples, targets
 
     # TODO: Check if that's how prefetch should be used

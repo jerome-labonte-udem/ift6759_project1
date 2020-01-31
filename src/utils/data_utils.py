@@ -70,7 +70,7 @@ def get_labels_list_datetime(
         target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],
         stations: OrderedDict
-) -> np.array:
+) -> Tuple[np.array, List[int]]:
     """
     This function take the same input that we will receive at test time.
     (see function prepare_dataloader in evaluator.py)
@@ -78,17 +78,40 @@ def get_labels_list_datetime(
     :param target_datetimes: all datetimes that we want the labels from
     :param df: dataframe of catalog.pkl
     :param target_time_offsets: the list of timedeltas to predict GHIs for (by definition: [T=0, T+1h, T+3h, T+6h]).
-    :return (len(target_datetimes) * 7) labels where each label is 4 GHI values
+    :return Tuple[(len(target_datetimes) * 7) labels where each label is 4 GHI values,
+                  list of indexes of invalid time_stamps]
     """
     labels = []
-    for begin in target_datetimes:
+    invalid_indexes = []
+    for i, begin in enumerate(target_datetimes):
         t0 = pd.Timestamp(begin)
+        list_stations = []
+        # If one GHI for ONE of the station at ONE of the time stamps + offsets is invalid
+        # We cancel the whole timestamp
+        invalid = False
         for station in stations.keys():
-            label = []
+            list_ghi = []
             for offset in target_time_offsets:
-                label.append(df.loc[t0 + offset, Catalog.ghi(station)])
-            labels.append(label)
-    return np.array(labels)
+                ghi = df.loc[t0 + offset, Catalog.ghi(station)]
+                if np.isnan(ghi):
+                    invalid_indexes.append(i)
+                    invalid = True
+                    break
+                else:
+                    list_ghi.append(ghi)
+            if invalid:
+                break
+            else:
+                list_stations.append(list_ghi)
+        if invalid:
+            continue
+        else:
+            labels.extend(list_stations)
+
+    # Does this ever happen ?
+    if len(invalid_indexes) > 0:
+        print(f"Invalid indexes for targets at {invalid_indexes}")
+    return np.array(labels), invalid_indexes
 
 
 def get_hdf5_samples_from_day(
@@ -108,7 +131,7 @@ def get_hdf5_samples_from_day(
     sample_indexes = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
     patches = []
     # List of invalid indexes in array, (no data, invalid path, etc.)
-    invalids_i = []
+    invalid_indexes = []
     if directory is None:
         hdf5_path = path
     else:
@@ -119,10 +142,10 @@ def get_hdf5_samples_from_day(
         for i, index in enumerate(sample_indexes):
             patches_index = h5.get_image_patches(index, Station.COORDS)
             if not patches_index:
-                invalids_i.append(i)
+                invalid_indexes.append(i)
             else:
                 patches.extend(patches_index)
-    return patches, invalids_i
+    return patches, invalid_indexes
 
 
 def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
