@@ -15,7 +15,7 @@ class TestDataUtils(unittest.TestCase):
                               "catalog.helios.public.20100101-20160101.pkl")
         self.test_data_path = Path("dummy_test_catalog.pkl")
         self.df = pd.read_pickle(self.data_path)
-        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2012-01-03T08:00:00.000000000'))
+        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2015-12-31T08:00:00.000000000'))
 
     def test_get_metadata_start_end(self):
         # If end < start, return nothing
@@ -37,13 +37,14 @@ class TestDataUtils(unittest.TestCase):
         self.assertEqual(24 * 4 * 6 + 18 * 4, len(labels))
 
     def test_get_labels_list_datetime(self):
-        # Test that we can correctly fetch 100 labels from a station
-        # true_labels_t0 = np.array(list(self.df[Catalog.ghi(Station.BND)][:100].values))
-        length = 100
+        # Test that we can correctly fetch X labels from a station
+        length = 96
         list_datetimes = list(self.df.index[:length].values)
         fetch_labels, invalid_indexes = get_labels_list_datetime(
             self.df, list_datetimes, get_target_time_offsets(), stations=Station.COORDS
         )
+        print(self.df.head())
+        # Station DRA invalid first day
         for index in invalid_indexes:
             self.assertTrue(0 < index < 100 * len(Station.list()))
 

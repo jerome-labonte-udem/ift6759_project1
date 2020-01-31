@@ -90,14 +90,20 @@ def get_labels_list_datetime(
             list_ghi = []
             invalid = False
             for offset in target_time_offsets:
-                ghi = df.loc[t0 + offset, Catalog.ghi(station)]
-                if np.isnan(ghi):
-                    print(f"appending {i * len(stations) + j} -- i {i} -- j {j}")
+                try:
+                    ghi = df.loc[t0 + offset, Catalog.ghi(station)]
+                    if np.isnan(ghi):
+                        invalid_indexes.append(i * len(stations) + j)
+                        invalid = True
+                        break
+                    else:
+                        list_ghi.append(ghi)
+                except KeyError as err:
+                    # Probably trying to look in 2016 but we don't have access to these GHI values
+                    print(f"KeyError: {err}")
                     invalid_indexes.append(i * len(stations) + j)
                     invalid = True
                     break
-                else:
-                    list_ghi.append(ghi)
             if not invalid:
                 labels.append(list_ghi)
     return np.array(labels), invalid_indexes
@@ -106,7 +112,7 @@ def get_labels_list_datetime(
 def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
                                target_time_offsets: List[datetime.timedelta],
                                stations: OrderedDict) \
-        -> np.array:
+        -> List:
     """
     Get metadata for every datetime in given list
     :param df: pandas dataframe
@@ -116,18 +122,25 @@ def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime
     :return: np.array containing metadata for each time
     """
     metadatas = []
+    place_holder = 0.0  # TODO: fix this
     for begin in target_datetimes:
         t0 = pd.Timestamp(begin)
         for station in stations.keys():
             metadata = []
-            for offset in target_time_offsets:
-                metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
+            try:
+                for offset in target_time_offsets:
+                    metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
+            except KeyError as err:
+                # TODO: @Marie, add your computation for _CLEARSKY_GHI here.. ?
+                # Probably trying to look in 2016 but we don't have access to these values
+                print(f"KeyError: {err}")
+                metadata.append(place_holder)
             metadata.append(df.loc[t0, f"{station}_DAYTIME"])
             metadata.append(t0.dayofyear)
             metadata.append(t0.hour)
             metadata.append(t0.minute)
             metadatas.append(metadata)
-    return np.array(metadatas)
+    return metadatas
 
 
 def get_hdf5_samples_from_day(

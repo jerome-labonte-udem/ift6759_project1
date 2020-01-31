@@ -50,9 +50,9 @@ def hdf5_dataloader_list_of_days(
                 # Generate randomly batch_size timestamps from that given day
                 batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
 
+            # Samples should be of shape (batch_size - len(invalid_ids)) * 7
             samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
                                                             directory=data_directory, patch_size=patch_size)
-
             # Remove invalid indexes so that len(targets) == len(samples)
             # Delete them in reverse order so that you don't throw off the subsequent indexes.
             # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
@@ -61,16 +61,15 @@ def hdf5_dataloader_list_of_days(
 
             metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
                                                   target_time_offsets, Station.COORDS)
-
             if test_time:
                 targets = tf.zeros(shape=(len(batch_of_datetimes) * len(Station.COORDS), len(target_time_offsets)))
             else:
                 targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
                                                                   target_time_offsets, Station.COORDS)
-                # Remove samples at indexes of invalid targets
+                # Remove samples and metadata at indexes of invalid targets
                 for index in sorted(invalid_idx_t, reverse=True):
                     del samples[index]
-
+                    del metadata[index]
             yield (samples, metadata), targets
 
     metadata_len = 4 + len(target_time_offsets)

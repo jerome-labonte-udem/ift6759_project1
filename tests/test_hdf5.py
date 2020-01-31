@@ -13,9 +13,9 @@ class TestHDF5File(unittest.TestCase):
         self.data_dir = Path(Path(__file__).parent.parent, "data")
         self.data_path = Path(self.data_dir, "catalog.helios.public.20100101-20160101.pkl")
         self.df = pd.read_pickle(self.data_path)
-        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2012-01-03T08:00:00.000000000'))
+        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2015-12-31T08:00:00.000000000'))
         self.hdf8_dir = Path(self.data_dir, "hdf5v7_8bit")
-        self.hdf5_path = Path(self.hdf8_dir, "2012.01.03.0800.h5")
+        self.hdf5_path = Path(self.hdf8_dir, "2015.12.31.0800.h5")
 
     def test_get_hdf5_offsets(self):
         midnight = pd.Timestamp(self.df.index[0])

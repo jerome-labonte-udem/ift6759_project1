@@ -11,7 +11,7 @@ class TestDataPipeline(unittest.TestCase):
         self.data_dir = Path(Path(__file__).parent.parent, "data")
         self.data_path = Path(self.data_dir, "catalog.helios.public.20100101-20160101.pkl")
         self.df = pd.read_pickle(self.data_path)
-        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2012-01-03T08:00:00.000000000'))
+        self.datetime_hdf5_test = pd.Timestamp(np.datetime64('2015-12-31T08:00:00.000000000'))
         self.hdf8_dir = Path(self.data_dir, "hdf5v7_8bit")
 
     def test_hdf5_dataloader_list_of_days(self):
