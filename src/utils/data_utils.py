@@ -85,29 +85,21 @@ def get_labels_list_datetime(
     invalid_indexes = []
     for i, begin in enumerate(target_datetimes):
         t0 = pd.Timestamp(begin)
-        list_stations = []
-        # If one GHI for ONE of the station at ONE of the time stamps + offsets is invalid
-        # We cancel the whole timestamp
-        # TODO: Remove indexes only from THE station that has NaN values
-        invalid = False
-        for station in stations.keys():
+        # If one GHI (out of 4) of the time stamp + offsets is invalid -> we remove that sample
+        for j, station in enumerate(stations.keys()):
             list_ghi = []
+            invalid = False
             for offset in target_time_offsets:
                 ghi = df.loc[t0 + offset, Catalog.ghi(station)]
                 if np.isnan(ghi):
-                    invalid_indexes.append(i)
+                    print(f"appending {i * len(stations) + j} -- i {i} -- j {j}")
+                    invalid_indexes.append(i * len(stations) + j)
                     invalid = True
                     break
                 else:
                     list_ghi.append(ghi)
-            if invalid:
-                break
-            else:
-                list_stations.append(list_ghi)
-        if invalid:
-            continue
-        else:
-            labels.extend(list_stations)
+            if not invalid:
+                labels.append(list_ghi)
     return np.array(labels), invalid_indexes
 
 

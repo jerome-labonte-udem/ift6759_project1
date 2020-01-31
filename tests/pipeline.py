@@ -21,11 +21,6 @@ data_path = Path(Path(__file__).parent.parent, "data")  # redefine data path her
 df = pd.read_pickle(Path(data_path,
                          "catalog.helios.public.20100101-20160101.pkl"))
 
-list_days = [
-    pd.Timestamp(np.datetime64('2012-01-03T08:00:00.000000000'))
-
-]
-
 print(df.head())
 hdf5_paths = df[Catalog.hdf5_8bit_path]
 df = df.fillna(0)

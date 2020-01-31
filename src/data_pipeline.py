@@ -10,7 +10,7 @@ from src.utils.data_utils import (
 
 def hdf5_dataloader_list_of_days(
         dataframe: pd.DataFrame,
-        target_days: List[datetime.datetime],
+        target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],
         batch_size: int,
         data_directory: str,
@@ -19,13 +19,15 @@ def hdf5_dataloader_list_of_days(
         patch_size: Tuple[int, int] = (32, 32)
 ) -> tf.data.Dataset:
     """
-    Dataloader that takes as argument a list of days (datetime.datetime but where the only thing that matters
-    is the path to the hdf5_file). We then sample "batch_size" timestamps from that day, and get a total of
+    * Train time *: Dataloader that takes as argument a list of days
+    (datetime.datetime but where the only thing that matters is the path to the hdf5_file).
+    We then sample "batch_size" timestamps from that day, and get a total of
     num_stations * batch_size samples for that day
+    * Test time *: Take as input a list of target_datetimes (same as required by script in evaluator.py)
     Args:
         dataframe: a pandas dataframe that provides the netCDF file path (or HDF5 file path and offset) for all
             relevant timestamp values over the test period.
-        target_days:
+        target_datetimes:
         target_time_offsets: the list of timedeltas to predict GHIs for (by definition: [T=0, T+1h, T+3h, T+6h]).
         config: configuration dictionary holding any extra parameters that might be required by the user. These
             parameters are loaded automatically if the user provided a JSON file in their submission. Submitting
@@ -39,11 +41,15 @@ def hdf5_dataloader_list_of_days(
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
         by ``target_sequences``.
     """
-
     def data_generator():
-        for i in range(0, len(target_days)):
-            # Generate randomly batch_size timestamps from that given day
-            batch_of_datetimes = random_timestamps_from_day(dataframe, target_days[i], batch_size)
+        for i in range(0, len(target_datetimes)):
+            if test_time:
+                # Directly use the provided list of datimes
+                batch_of_datetimes = target_datetimes[i:i + batch_size]
+            else:
+                # Generate randomly batch_size timestamps from that given day
+                batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
+
             samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
                                                             directory=data_directory, patch_size=patch_size)
 

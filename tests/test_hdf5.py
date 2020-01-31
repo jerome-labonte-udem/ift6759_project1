@@ -5,7 +5,6 @@ import h5py
 import numpy as np
 from src.schema import Catalog, Station, get_target_time_offsets
 from src.hdf5 import HDF5File
-from src.data_pipeline import hdf5_dataloader_list_of_days
 
 
 class TestHDF5File(unittest.TestCase):
@@ -65,28 +64,6 @@ class TestHDF5File(unittest.TestCase):
                     # print(f"No lats/longs for idx {idx}")
                     continue
                 np.testing.assert_equal(lats, new_lats)
-
-    def test_hdf5_dataloader_list_of_days(self):
-        """ Test dataloader  """
-        batch_size = 4
-        # Actually using same day 3 times since there is a random sampling involved
-        list_days = [self.datetime_hdf5_test] * 3
-        dataset = hdf5_dataloader_list_of_days(self.df, list_days,
-                                               get_target_time_offsets(), data_directory=self.hdf8_dir,
-                                               batch_size=batch_size, test_time=False)
-        for (sample, metadata), target in dataset:
-            self.assertEqual(len(sample), len(target))
-            self.assertEqual(len(metadata), len(target))
-            for t in target:
-                self.assertEqual(len(get_target_time_offsets()), len(t))
-
-        # Test dataloader at test time
-        dataset = hdf5_dataloader_list_of_days(self.df, list_days,
-                                               get_target_time_offsets(), data_directory=self.hdf8_dir,
-                                               batch_size=batch_size, test_time=True)
-        for (sample, metadata), target in dataset:
-            self.assertEqual(len(sample), len(target))
-            self.assertEqual(len(metadata), len(target))
 
     def test_get_stations_coords(self):
         """ Test to generate station coordinates (in pixel) on the (650, 1500) images """

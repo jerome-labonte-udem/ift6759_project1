@@ -39,10 +39,13 @@ class TestDataUtils(unittest.TestCase):
     def test_get_labels_list_datetime(self):
         # Test that we can correctly fetch 100 labels from a station
         # true_labels_t0 = np.array(list(self.df[Catalog.ghi(Station.BND)][:100].values))
-        list_datetimes = list(self.df.index[:100].values)
-        fetch_labels, _ = get_labels_list_datetime(self.df, target_datetimes=list_datetimes,
-                                                   target_time_offsets=get_target_time_offsets(),
-                                                   stations=Station.COORDS)
+        length = 100
+        list_datetimes = list(self.df.index[:length].values)
+        fetch_labels, invalid_indexes = get_labels_list_datetime(
+            self.df, list_datetimes, get_target_time_offsets(), stations=Station.COORDS
+        )
+        for index in invalid_indexes:
+            self.assertTrue(0 < index < 100 * len(Station.list()))
 
     def test_random_timestamps_from_day(self):
         """ Test that starting from one day, we can randomly sample X timestamps from that day """
