@@ -155,33 +155,13 @@ def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
     :return: list of random timestamps from given day
     """
     path_day = df.at[target_day, Catalog.hdf5_8bit_path]
-    all_photos_day = df.loc[df[Catalog.hdf5_8bit_path] == path_day]
+    photos = df.loc[df[Catalog.hdf5_8bit_path] == path_day]
+
+    # Remove all photos that we know are invalid
+    # TODO: Faster/Better way to do this ?
+    for hour, minute in Catalog.invalid_hours():
+        photos = photos.loc[(photos.index.hour != hour) | (photos.index.minute != minute)]
+
     # TODO: Filter here some timestamps that we don't want (e.g. during the night) ??
-    random_timestamps = random.choices(all_photos_day.index, k=batch_size)
+    random_timestamps = random.choices(photos.index, k=batch_size)
     return random_timestamps
-
-
-def filter_catalog(df: pd.DataFrame, remove_invalid_labels: bool) -> pd.DataFrame:
-    """
-    Remove Invalid hours where photos are never available for the satellite
-    Also remove rows where the path to hdf5 is invalid
-    :param remove_invalid_labels: If true, we also remove entries that have nan at some GHI column
-    :param df: catalog.pkl
-    :return: catalog.pkl without invalid entries
-    """
-    # TODO: Can't actually use this because we need to keep rows for GHI values if they are in t+1, t+3, t+6
-    # TODO: Maybe there is a way to speed this up ? But only takes 1-2 seconds
-    invalid_hours = [
-        (0, 0), (0, 30), (3, 0), (6, 0), (9, 0),
-        (12, 0), (15, 0), (15, 30), (18, 0), (21, 0)
-    ]
-    for hour, minute in invalid_hours:
-        df = df.loc[(df.index.hour != hour) | (df.index.minute != minute)]
-
-    # Remove entries that have nan in the path
-    df = df[pd.notnull(df[Catalog.hdf5_8bit_path])]
-
-    if remove_invalid_labels:
-        for station in Station.list():
-            df = df[pd.notnull(df[Catalog.ghi(station)])]
-    return df

@@ -2,8 +2,7 @@ import unittest
 import pandas as pd
 from pathlib import Path
 from src.utils.data_utils import (
-    get_metadata_start_end, get_labels_start_end, get_labels_list_datetime, random_timestamps_from_day,
-    filter_catalog
+    get_metadata_start_end, get_labels_start_end, get_labels_list_datetime, random_timestamps_from_day
 )
 from src.schema import Station, get_target_time_offsets
 import numpy as np
@@ -50,8 +49,3 @@ class TestDataUtils(unittest.TestCase):
         bs = 10
         ts = random_timestamps_from_day(self.df, self.datetime_hdf5_test, batch_size=bs)
         self.assertEqual(10, len(ts))
-
-    def test_filter_catalog(self):
-        len_df_bef = len(self.df)
-        df = filter_catalog(self.df, remove_invalid_labels=True)
-        self.assertTrue(len(df) < len_df_bef)
