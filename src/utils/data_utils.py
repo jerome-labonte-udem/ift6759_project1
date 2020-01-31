@@ -122,7 +122,7 @@ def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime
     :return: np.array containing metadata for each time
     """
     metadatas = []
-    place_holder = 0.0  # TODO: fix this
+    place_holder = 0.0
     for begin in target_datetimes:
         t0 = pd.Timestamp(begin)
         for station in stations.keys():
@@ -131,7 +131,8 @@ def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime
                 for offset in target_time_offsets:
                     metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
             except KeyError as err:
-                # TODO: @Marie, add your computation for _CLEARSKY_GHI here.. ?
+                # If CLEARSKY_GHI not available in df -> GHI not available as well
+                # so these timestamps will be removed from get_labels()
                 # Probably trying to look in 2016 but we don't have access to these values
                 print(f"KeyError: {err}")
                 metadata.append(place_holder)

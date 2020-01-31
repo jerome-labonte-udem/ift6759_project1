@@ -1,6 +1,6 @@
 import tensorflow as tf
 import pandas as pd
-from typing import List, Dict, Any, AnyStr, Tuple
+from typing import List, Dict, Any, AnyStr, Tuple, Optional
 import datetime
 from src.schema import Station
 from src.utils.data_utils import (
@@ -13,9 +13,9 @@ def hdf5_dataloader_list_of_days(
         target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],
         batch_size: int,
-        data_directory: str,
         test_time: bool,
         config: Dict[AnyStr, Any] = None,
+        data_directory: Optional[str] = None,
         patch_size: Tuple[int, int] = (32, 32)
 ) -> tf.data.Dataset:
     """
@@ -33,7 +33,8 @@ def hdf5_dataloader_list_of_days(
             parameters are loaded automatically if the user provided a JSON file in their submission. Submitting
             such a JSON file is completely optional, and this argument can be ignored if not needed.
         batch_size: Samples per batch. -- The real batch_size will be num_stations * batch_size --
-        data_directory: Provide a data_directory if the directory is not the same as the paths from the dataframe
+        data_directory: (Optional) Provide a data_directory if the directory is not the same as
+        the paths from the dataframe
         test_time: if test_time, return None as target
         patch_size:
     Returns:
