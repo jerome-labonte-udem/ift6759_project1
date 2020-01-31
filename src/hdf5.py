@@ -143,7 +143,9 @@ class HDF5File:
         for coords in stations_coords.values():
             x_idx = (int(coords[0] - patch_size[0] // 2), int(coords[0] + patch_size[0] // 2))
             y_idx = (int(coords[1] - patch_size[0] // 2), int(coords[1] + patch_size[0] // 2))
-            patches.append(channel_data[:, x_idx[0]:x_idx[1], y_idx[0]:y_idx[1]])
+            patch = channel_data[:, x_idx[0]:x_idx[1], y_idx[0]:y_idx[1]]
+            patch = np.transpose(patch, (1, 2, 0))
+            patches.append(patch)
         return patches
 
     @staticmethod

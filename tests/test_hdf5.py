@@ -74,8 +74,9 @@ class TestHDF5File(unittest.TestCase):
         dataset = hdf5_dataloader_list_of_days(self.df, list_days,
                                                get_target_time_offsets(), data_directory=self.hdf8_dir,
                                                batch_size=batch_size, test_time=False)
-        for sample, target in dataset:
+        for (sample, metadata), target in dataset:
             self.assertEqual(len(sample), len(target))
+            self.assertEqual(len(metadata), len(target))
             for t in target:
                 self.assertEqual(len(get_target_time_offsets()), len(t))
 
@@ -83,8 +84,9 @@ class TestHDF5File(unittest.TestCase):
         dataset = hdf5_dataloader_list_of_days(self.df, list_days,
                                                get_target_time_offsets(), data_directory=self.hdf8_dir,
                                                batch_size=batch_size, test_time=True)
-        for sample, target in dataset:
+        for (sample, metadata), target in dataset:
             self.assertEqual(len(sample), len(target))
+            self.assertEqual(len(metadata), len(target))
 
     def test_get_stations_coords(self):
         """ Test to generate station coordinates (in pixel) on the (650, 1500) images """

@@ -111,12 +111,41 @@ def get_labels_list_datetime(
     return np.array(labels), invalid_indexes
 
 
+def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
+                               target_time_offsets: List[datetime.timedelta],
+                               stations: OrderedDict) \
+        -> np.array:
+    """
+    Get metadata for every datetime in given list
+    :param df: pandas dataframe
+    :param target_datetimes: all datetimes that we want metadata for
+    :param target_time_offsets: the list of timedeltas to predict GHIs for (by definition: [T=0, T+1h, T+3h, T+6h]).
+    :param stations: dict station
+    :return: np.array containing metadata for each time
+    """
+    metadatas = []
+    for begin in target_datetimes:
+        t0 = pd.Timestamp(begin)
+        for station in stations.keys():
+            metadata = []
+            for offset in target_time_offsets:
+                metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
+            metadata.append(df.loc[t0, f"{station}_DAYTIME"])
+            metadata.append(t0.dayofyear)
+            metadata.append(t0.hour)
+            metadata.append(t0.minute)
+            metadatas.append(metadata)
+    return np.array(metadatas)
+
+
 def get_hdf5_samples_from_day(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
+        patch_size,
         directory: Optional[str] = None,
 ) -> Tuple[List[np.array], List[int]]:
     """
+    :param patch_size:
     :param target_datetimes:
     :param df: catalog.pkl
     :param directory: If directory is not provided (None), use the path from catalog dataframe,
@@ -137,7 +166,7 @@ def get_hdf5_samples_from_day(
     with h5py.File(hdf5_path, "r") as f_h5:
         h5 = HDF5File(f_h5)
         for i, index in enumerate(sample_indexes):
-            patches_index = h5.get_image_patches(index, Station.COORDS)
+            patches_index = h5.get_image_patches(index, Station.COORDS, patch_size=patch_size)
             if not patches_index:
                 invalid_indexes.append(i)
             else:
