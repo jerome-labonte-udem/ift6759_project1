@@ -44,7 +44,6 @@ class TestDataUtils(unittest.TestCase):
         fetch_labels, _ = get_labels_list_datetime(self.df, target_datetimes=list_datetimes,
                                                    target_time_offsets=get_target_time_offsets(),
                                                    stations=Station.COORDS)
-        self.assertEqual(100 * len(Station.COORDS), len(fetch_labels))
 
     def test_random_timestamps_from_day(self):
         """ Test that starting from one day, we can randomly sample X timestamps from that day """

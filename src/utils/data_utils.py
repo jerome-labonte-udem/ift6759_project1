@@ -88,6 +88,7 @@ def get_labels_list_datetime(
         list_stations = []
         # If one GHI for ONE of the station at ONE of the time stamps + offsets is invalid
         # We cancel the whole timestamp
+        # TODO: Remove indexes only from THE station that has NaN values
         invalid = False
         for station in stations.keys():
             list_ghi = []
@@ -107,10 +108,6 @@ def get_labels_list_datetime(
             continue
         else:
             labels.extend(list_stations)
-
-    # Does this ever happen ?
-    if len(invalid_indexes) > 0:
-        print(f"Invalid indexes for targets at {invalid_indexes}")
     return np.array(labels), invalid_indexes
 
 
