@@ -4,7 +4,7 @@ utility functions to extract data from pandas dataframe
 import numpy as np
 import pandas as pd
 import os
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 from _collections import OrderedDict
 import datetime
 import h5py
@@ -135,6 +135,7 @@ def get_hdf5_samples_from_day(
         target_datetimes: List[datetime.datetime],
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
+        stations: Dict = Station.COORDS
 ) -> Tuple[List[np.array], List[int]]:
     """
     Get len(target_datetimes) sample from only one .hdf5 file
@@ -159,7 +160,7 @@ def get_hdf5_samples_from_day(
     with h5py.File(hdf5_path, "r") as f_h5:
         h5 = HDF5File(f_h5)
         for i, index in enumerate(sample_indexes):
-            patches_index = h5.get_image_patches(index, Station.COORDS, patch_size=patch_size)
+            patches_index = h5.get_image_patches(index, stations, patch_size=patch_size)
             if not patches_index:
                 invalid_indexes.append(i)
             else:

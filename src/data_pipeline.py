@@ -15,6 +15,7 @@ def hdf5_dataloader_list_of_days(
         batch_size: int,
         data_directory: str,
         test_time: bool,
+        stations: Dict = None,
         config: Dict[AnyStr, Any] = None,
         patch_size: Tuple[int, int] = (32, 32)
 ) -> tf.data.Dataset:
@@ -41,43 +42,57 @@ def hdf5_dataloader_list_of_days(
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
         by ``target_sequences``.
     """
+    if stations is None:
+        stations = Station.COORDS
+    else:
+        stations = {k: Station.COORDS[k] for k in stations.keys()}
+
     def data_generator():
-        for i in range(0, len(target_datetimes)):
-            if test_time:
-                # Directly use the provided list of datimes
-                batch_of_datetimes = target_datetimes[i:i + batch_size]
-            else:
+        if test_time:  # Directly use the provided list of datetimes
+            for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
+                batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
+                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
+                                                                directory=data_directory, patch_size=patch_size,
+                                                                stations=stations)
+                # Remove invalid indexes so that len(targets) == len(samples)
+                # Delete them in reverse order so that you don't throw off the subsequent indexes.
+                # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
+                for index in sorted(invalids_i, reverse=True):
+                    del batch_of_datetimes[index]
+                metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
+                                                      target_time_offsets, stations)
+                targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
+
+                yield (samples, metadata), targets
+        else:
+            for i in range(0, len(target_datetimes)):
                 # Generate randomly batch_size timestamps from that given day
                 batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
-
-            samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
-                                                            directory=data_directory, patch_size=patch_size)
-
-            # Remove invalid indexes so that len(targets) == len(samples)
-            # Delete them in reverse order so that you don't throw off the subsequent indexes.
-            # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
-            for index in sorted(invalids_i, reverse=True):
-                del batch_of_datetimes[index]
-
-            metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
-                                                  target_time_offsets, Station.COORDS)
-
-            if test_time:
-                targets = tf.zeros(shape=(len(batch_of_datetimes) * len(Station.COORDS), len(target_time_offsets)))
-            else:
-                targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
-                                                                  target_time_offsets, Station.COORDS)
-                # Remove samples at indexes of invalid targets
-                for index in sorted(invalid_idx_t, reverse=True):
-                    del samples[index]
-
-            yield (samples, metadata), targets
+                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
+                                                                directory=data_directory, patch_size=patch_size,
+                                                                stations=stations)
+                # Remove invalid indexes so that len(targets) == len(samples)
+                # Delete them in reverse order so that you don't throw off the subsequent indexes.
+                # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
+                for index in sorted(invalids_i, reverse=True):
+                    del batch_of_datetimes[index]
+                metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
+                                                      target_time_offsets, stations)
+                if test_time:
+                    targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
+                else:
+                    targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
+                                                                      target_time_offsets, stations)
+                    # Remove samples at indexes of invalid targets
+                    for index in sorted(invalid_idx_t, reverse=True):
+                        del samples[index]
+                yield (samples, metadata), targets
 
     metadata_len = 4 + len(target_time_offsets)
     target_len = len(target_time_offsets)
     # TODO: Check if that's how prefetch should be used
     data_loader = tf.data.Dataset.from_generator(
-        data_generator, ((tf.float32, tf.float32), tf.float32),
+        data_generator, output_types=((tf.float32, tf.float32), tf.float32),
         output_shapes=(((None, patch_size[0], patch_size[1], 5), (None, metadata_len)), (None, target_len))
     ).prefetch(tf.data.experimental.AUTOTUNE)
 
