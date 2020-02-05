@@ -7,20 +7,48 @@ import importlib
 import json
 import os
 from pathlib import Path
+from typing import Dict, Tuple, List
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import tensorflow as tf
+from tensorboard.plugins.hparams import api as hp
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
 from src.data_pipeline import hdf5_dataloader_list_of_days
 from src.schema import Catalog
+
+# Directory to save logs for Tensorboard
+LOG_DIR = os.path.join("logs", "fit")
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
 tf_config = ConfigProto()
 tf_config.gpu_options.allow_growth = True
 session = InteractiveSession(config=tf_config)
+
+
+def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch_size: int, val_batch_size: int,
+                              patch_size: Tuple[int, int]) -> List:
+    log_file = os.path.join(LOG_DIR, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(
+        log_dir=log_file,
+        histogram_freq=1
+    )
+
+    hparams = {
+        "model_name": model_name,
+        "train_batch_size": train_batch_size,
+        "val_batch_size": val_batch_size,
+        "patch_size": patch_size[0],  # type "tuple" is unsupported
+    }
+    hparams.update(compile_params)
+
+    return [
+        tensorboard_callback,
+        hp.KerasCallback(log_file, hparams),  # log hparams
+    ]
 
 
 def main(model_path: str, config_path: str, plot_loss: bool) -> None:
@@ -97,9 +125,14 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     compile_params = config["compile_params"]
     model.compile(**compile_params)
 
-    history = model.fit(train_data,
-                        epochs=epochs,
-                        validation_data=val_data)
+    history = model.fit(
+        train_data,
+        epochs=epochs,
+        validation_data=val_data,
+        callbacks=get_callbacks_tensorboard(
+            compile_params, model_name, train_batch_size, val_batch_size, patch_size
+        )
+    )
 
     model.save_weights(model_path)
 
@@ -116,9 +149,9 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("model_path", type=str,
+    parser.add_argument("--model_path", type=str, default="tests/saved_models/",
                         help="path where the model should be saved")
-    parser.add_argument("cfg_path", type=str,
+    parser.add_argument("--cfg_path", type=str, default="config_files/train_config_philippe.json",
                         help="path to the JSON config file used to define train parameters")
     parser.add_argument("-p", "--plot", help="plot the training and validation loss",
                         action="store_true")
