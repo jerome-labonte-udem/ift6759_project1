@@ -4,7 +4,8 @@ from typing import List, Dict, Any, AnyStr, Tuple, Optional
 import datetime
 from src.schema import Station
 from src.utils.data_utils import (
-    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata_list_datetime
+    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata_list_datetime,
+    get_hdf5_samples_list_datetime
 )
 
 
@@ -38,6 +39,7 @@ def hdf5_dataloader_list_of_days(
         the paths from the dataframe
         test_time: if test_time, return None as target
         patch_size:
+        stations:
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
@@ -50,11 +52,16 @@ def hdf5_dataloader_list_of_days(
 
     def data_generator():
         if test_time:  # Directly use the provided list of datetimes
+            print(f"len {len(target_datetimes)}: target_datetimes {target_datetimes}")
             for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
                 batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
-                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
-                                                                directory=data_directory, patch_size=patch_size,
-                                                                stations=stations)
+                if not batch_of_datetimes:
+                    continue
+
+                samples, invalids_i = get_hdf5_samples_list_datetime(
+                    dataframe, batch_of_datetimes, patch_size, data_directory, stations
+                )
+                print(f"samples.shape {len(samples)} -- invalids_i {invalids_i}")
                 # Remove invalid indexes so that len(targets) == len(samples)
                 # Delete them in reverse order so that you don't throw off the subsequent indexes.
                 # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
@@ -72,9 +79,6 @@ def hdf5_dataloader_list_of_days(
                 samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
                                                                 directory=data_directory, patch_size=patch_size,
                                                                 stations=stations)
-                # Remove invalid indexes so that len(targets) == len(samples)
-                # Delete them in reverse order so that you don't throw off the subsequent indexes.
-                # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
                 metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,

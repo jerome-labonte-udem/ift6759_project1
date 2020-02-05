@@ -4,7 +4,7 @@ utility functions to extract data from pandas dataframe
 import numpy as np
 import pandas as pd
 import os
-from typing import Dict, List, Tuple, Optional
+from typing import List, Tuple, Optional
 from _collections import OrderedDict
 import datetime
 import h5py
@@ -149,10 +149,13 @@ def get_hdf5_samples_from_day(
         target_datetimes: List[datetime.datetime],
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
-        stations: Dict = Station.COORDS
+        stations: OrderedDict = Station.COORDS
 ) -> Tuple[List[np.array], List[int]]:
     """
-    Get len(target_datetimes) sample from only one .hdf5 file
+    This is for train/validation time only.
+    Assume each target datetime has same path in the dataframe (come from same day)
+    Get len(target_days) sample from only one .hdf5 file
+    :param stations:
     :param patch_size:
     :param target_datetimes:
     :param df: catalog.pkl
@@ -179,6 +182,45 @@ def get_hdf5_samples_from_day(
                 invalid_indexes.append(i)
             else:
                 patches.extend(patches_index)
+    return patches, invalid_indexes
+
+
+def get_hdf5_samples_list_datetime(
+        df: pd.DataFrame,
+        target_datetimes: List[datetime.datetime],
+        patch_size: Tuple[int, int],
+        directory: Optional[str] = None,
+        stations: OrderedDict = Station.COORDS
+) -> Tuple[List[np.array], List[int]]:
+    """
+    Open one .hdf5 file for each target_datetime provided
+    :param stations:
+    :param patch_size:
+    :param target_datetimes:
+    :param df: catalog.pkl
+    :param directory: If directory is not provided (None), use the path from catalog dataframe,
+    else use the directory provided but with same filename
+    :return: Tuple[patches as np,array, list of index of invalid target_datimes (no picture)]
+    """
+    paths = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_path] for t in target_datetimes]
+    sample_indexes = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
+    patches = []
+    # List of invalid indexes in array, (no data, invalid path, etc.)
+    invalid_indexes = []
+    for i, path in enumerate(paths):
+        if directory is None:
+            hdf5_path = path
+        else:
+            folder, filename = os.path.split(path)
+            hdf5_path = os.path.join(directory, filename)
+        with h5py.File(hdf5_path, "r") as f_h5:
+            h5 = HDF5File(f_h5)
+            patches_index = h5.get_image_patches(sample_indexes[i], stations, patch_size=patch_size)
+            if not patches_index:
+                invalid_indexes.append(i)
+            else:
+                patches.extend(patches_index)
+
     return patches, invalid_indexes
 
 

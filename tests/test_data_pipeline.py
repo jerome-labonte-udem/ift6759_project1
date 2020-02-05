@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import datetime
 from src.schema import get_target_time_offsets
 from src.data_pipeline import hdf5_dataloader_list_of_days
 
@@ -15,25 +16,31 @@ class TestDataPipeline(unittest.TestCase):
         self.hdf8_dir = Path(self.data_dir, "hdf5v7_8bit")
 
     def test_hdf5_dataloader_list_of_days(self):
-        """ Test dataloader  """
-        batch_size = 64
+        """ Test dataloader at train/valid time (list of days) """
         # Actually using same day 3 times since there is a random sampling involved
         list_days = [self.datetime_hdf5_test] * 3
         dataset = hdf5_dataloader_list_of_days(self.df, list_days,
                                                get_target_time_offsets(), data_directory=self.hdf8_dir,
-                                               batch_size=batch_size, test_time=False)
+                                               batch_size=64, test_time=False)
         for (sample, metadata), target in dataset:
             self.assertEqual(len(sample), len(target))
             self.assertEqual(len(metadata), len(target))
             for t in target:
                 self.assertEqual(len(get_target_time_offsets()), len(t))
 
-        print(f"hellooo")
+    def test_hdf5_data_loader_test_time(self):
+        # Test dataloader at test time (list of target times)
+        list_datetimes = [
+            self.datetime_hdf5_test,
+            self.datetime_hdf5_test + datetime.timedelta(hours=1),
+            self.datetime_hdf5_test + datetime.timedelta(hours=3),
+            self.datetime_hdf5_test + datetime.timedelta(hours=6, minutes=15),
+            self.datetime_hdf5_test + datetime.timedelta(hours=12)
+        ]
 
-        # Test dataloader at test time
-        dataset = hdf5_dataloader_list_of_days(self.df, list_days,
+        dataset = hdf5_dataloader_list_of_days(self.df, list_datetimes,
                                                get_target_time_offsets(), data_directory=self.hdf8_dir,
-                                               batch_size=batch_size, test_time=True)
+                                               batch_size=len(list_datetimes), test_time=True)
         for (sample, metadata), target in dataset:
             self.assertEqual(len(sample), len(target))
             self.assertEqual(len(metadata), len(target))
