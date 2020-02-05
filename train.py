@@ -149,9 +149,9 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, default="tests/saved_models/",
+    parser.add_argument("--model_path", type=str,
                         help="path where the model should be saved")
-    parser.add_argument("--cfg_path", type=str, default="config_files/train_config_philippe.json",
+    parser.add_argument("--cfg_path", type=str,
                         help="path to the JSON config file used to define train parameters")
     parser.add_argument("-p", "--plot", help="plot the training and validation loss",
                         action="store_true")
