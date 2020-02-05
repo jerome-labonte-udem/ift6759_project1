@@ -8,6 +8,18 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import tqdm
+from models.CNN2D import CNN2D
+from pathlib import Path
+from src.data_pipeline import hdf5_dataloader_list_of_days
+
+# The following config setting is necessary to work on my local RTX2070 GPU
+# Comment if you suspect it's causing trouble
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
 
 
 def prepare_dataloader(
@@ -53,34 +65,10 @@ def prepare_dataloader(
     """
 
     # MODIFY BELOW
-    # WE ARE PROVIDING YOU WITH A DUMMY DATA GENERATOR FOR DEMONSTRATION PURPOSES.
-    # MODIFY EVERYTHINGIN IN THIS BLOCK AS YOU SEE FIT
-
-    def dummy_data_generator():
-        """
-        Generate dummy data for the model, only for example purposes.
-        """
-        batch_size = 32
-        image_dim = (64, 64)
-        n_channels = 5
-        output_seq_len = 4
-
-        for i in range(0, len(target_datetimes), batch_size):
-            batch_of_datetimes = target_datetimes[i:i + batch_size]
-            samples = tf.random.uniform(shape=(
-                len(batch_of_datetimes), image_dim[0], image_dim[1], n_channels
-            ))
-            targets = tf.zeros(shape=(
-                len(batch_of_datetimes), output_seq_len
-            ))
-            # Remember that you do not have access to the targets.
-            # Your dataloader should handle this accordingly.
-            yield samples, targets
-
-    data_loader = tf.data.Dataset.from_generator(
-        dummy_data_generator, (tf.float32, tf.float32)
-    )
-
+    data_path = Path("../data")
+    data_loader = hdf5_dataloader_list_of_days(dataframe, target_datetimes,
+                                               target_time_offsets, data_directory=Path(data_path, "hdf5v7_8bit"),
+                                               batch_size=32, stations=stations, test_time=True)
     # MODIFY ABOVE
 
     return data_loader
@@ -107,21 +95,8 @@ def prepare_model(
     """
 
     # MODIFY BELOW
-
-    class DummyModel(tf.keras.Model):
-
-        def __init__(self, target_time_offsets):
-            super(DummyModel, self).__init__()
-            self.flatten = tf.keras.layers.Flatten()
-            self.dense1 = tf.keras.layers.Dense(32, activation=tf.nn.relu)
-            self.dense2 = tf.keras.layers.Dense(len(target_time_offsets), activation=tf.nn.softmax)
-
-        def call(self, inputs):
-            x = self.dense1(self.flatten(inputs))
-            return self.dense2(x)
-
-    model = DummyModel(target_time_offsets)
-
+    model = CNN2D()
+    model.load_weights("../tests/saved_models/cnn2d").expect_partial()
     # MODIFY ABOVE
 
     return model

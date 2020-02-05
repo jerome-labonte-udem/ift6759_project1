@@ -3,8 +3,6 @@ Basic model example using a 2D CNN with 32x32x3 images as inputs and metadata
 Used only for demonstration purposes and not to be used on real datas
 """
 import tensorflow as tf
-import numpy as np
-from typing import List
 
 
 class CNN2D(tf.keras.Model):
@@ -25,13 +23,9 @@ class CNN2D(tf.keras.Model):
         self.FC1 = tf.keras.layers.Dense(128, activation='relu')
         self.FC2 = tf.keras.layers.Dense(64, activation='relu')
 
-        self.t0 = tf.keras.layers.Dense(1, name='t0')
-        self.t1 = tf.keras.layers.Dense(1, name='t1')
-        self.t2 = tf.keras.layers.Dense(1, name='t2')
-        self.t3 = tf.keras.layers.Dense(1, name='t3')
+        self.t0 = tf.keras.layers.Dense(4, name='t0')
 
-    def call(self, inputs: List[np.array])\
-            -> List:
+    def call(self, inputs):
         """
         Perform forward on inputs and returns predicted GHI at the
         desired times
@@ -51,8 +45,5 @@ class CNN2D(tf.keras.Model):
         x = self.FC2(x)
         # Create 4 outputs for t0, t0+1, t0+3 and t0+6
         t0 = self.t0(x)
-        t1 = self.t1(x)
-        t2 = self.t2(x)
-        t3 = self.t3(x)
 
-        return [t0, t1, t2, t3]
+        return t0
