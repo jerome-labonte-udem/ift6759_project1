@@ -228,19 +228,13 @@ def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
                                batch_size) -> List[datetime.datetime]:
     """
     Randomly sample batch_size timestamps from the target_day
+    ** filter_timestamps_train_time has to be called on dataframe before entering here **
     :param df: catalog.pkl
     :param target_day: datetime from the day of the hdf5 file we want to open (hour doesn't matter)
     :param batch_size: number of timestamps we want to sample
     :return: list of random timestamps from given day
     """
     path_day = df.at[target_day, Catalog.hdf5_8bit_path]
-    photos = df.loc[df[Catalog.hdf5_8bit_path] == path_day]
-
-    # Remove all photos that we know are invalid
-    # TODO: Faster/Better way to do this ?
-    for hour, minute in Catalog.invalid_hours():
-        photos = photos.loc[(photos.index.hour != hour) | (photos.index.minute != minute)]
-
-    # TODO: Filter here some timestamps that we don't want (e.g. during the night) ??
+    photos = df.loc[(df[Catalog.hdf5_8bit_path] == path_day) & (df[Catalog.is_invalid] == 0)]
     random_timestamps = random.choices(photos.index, k=batch_size)
     return random_timestamps

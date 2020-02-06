@@ -18,10 +18,10 @@ class TestDataPipeline(unittest.TestCase):
     def test_hdf5_dataloader_list_of_days(self):
         """ Test dataloader at train/valid time (list of days) """
         # Actually using same day 3 times since there is a random sampling involved
-        list_days = [self.datetime_hdf5_test] * 3
+        list_days = [self.datetime_hdf5_test]
         dataset = hdf5_dataloader_list_of_days(self.df, list_days,
                                                get_target_time_offsets(), data_directory=self.hdf8_dir,
-                                               batch_size=64, test_time=False)
+                                               batch_size=16, test_time=False)
         for (sample, metadata), target in dataset:
             self.assertEqual(len(sample), len(target))
             self.assertEqual(len(metadata), len(target))

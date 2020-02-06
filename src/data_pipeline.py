@@ -2,7 +2,7 @@ import tensorflow as tf
 import pandas as pd
 from typing import List, Dict, Any, AnyStr, Tuple, Optional
 import datetime
-from src.schema import Station
+from src.schema import Station, Catalog
 from src.utils.data_utils import (
     get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata_list_datetime,
     get_hdf5_samples_list_datetime
@@ -50,9 +50,11 @@ def hdf5_dataloader_list_of_days(
     else:
         stations = {k: Station.COORDS[k] for k in stations.keys()}
 
+    # Add a Boolean flag true/false to know which rows are invalid t0s for training time
+    dataframe = Catalog.add_invalid_t0_column(dataframe)
+
     def data_generator():
         if test_time:  # Directly use the provided list of datetimes
-            print(f"len {len(target_datetimes)}: target_datetimes {target_datetimes}")
             for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
                 batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
                 if not batch_of_datetimes:
@@ -61,7 +63,6 @@ def hdf5_dataloader_list_of_days(
                 samples, invalids_i = get_hdf5_samples_list_datetime(
                     dataframe, batch_of_datetimes, patch_size, data_directory, stations
                 )
-                print(f"samples.shape {len(samples)} -- invalids_i {invalids_i}")
                 # Remove invalid indexes so that len(targets) == len(samples)
                 # Delete them in reverse order so that you don't throw off the subsequent indexes.
                 # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
