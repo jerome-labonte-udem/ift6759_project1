@@ -4,7 +4,7 @@ from typing import List, Dict, Any, AnyStr, Tuple, Optional
 import datetime
 from src.schema import Station
 from src.utils.data_utils import (
-    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata_list_datetime
+    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata
 )
 
 
@@ -48,6 +48,9 @@ def hdf5_dataloader_list_of_days(
     else:
         stations = {k: Station.COORDS[k] for k in stations.keys()}
 
+    # TODO get past_time_offsets from config and pass it to this method
+    past_time_offsets = target_time_offsets
+
     def data_generator():
         if test_time:  # Directly use the provided list of datetimes
             for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
@@ -60,11 +63,11 @@ def hdf5_dataloader_list_of_days(
                 # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
-                metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
-                                                      target_time_offsets, stations)
+                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes,
+                                                              target_time_offsets, stations)
                 targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
 
-                yield (samples, metadata), targets
+                yield (samples, past_metadata, future_metadata), targets
         else:
             for i in range(0, len(target_datetimes)):
                 # Generate randomly batch_size timestamps from that given day
@@ -77,22 +80,28 @@ def hdf5_dataloader_list_of_days(
                 # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
-                metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
-                                                      target_time_offsets, stations)
+                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, past_time_offsets,
+                                                              target_time_offsets, stations)
                 targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
                                                                   target_time_offsets, stations)
                 # Remove samples and metadata at indexes of invalid targets
                 for index in sorted(invalid_idx_t, reverse=True):
                     del samples[index]
-                    del metadata[index]
-                yield (samples, metadata), targets
+                    del past_metadata[index]
+                    del future_metadata[index]
+                yield (samples, past_metadata, future_metadata), targets
 
-    metadata_len = 4 + len(target_time_offsets)
+    past_metadata_len = 5  # day, hour, min, daytime, Clearsky
+    future_metadata_len = len(target_time_offsets)
+    timesteps = len(past_time_offsets)
     target_len = len(target_time_offsets)
     # TODO: Check if that's how prefetch should be used
     data_loader = tf.data.Dataset.from_generator(
-        data_generator, output_types=((tf.float32, tf.float32), tf.float32),
-        output_shapes=(((None, patch_size[0], patch_size[1], 5), (None, metadata_len)), (None, target_len))
+        data_generator, output_types=((tf.float32, tf.float32, tf.float32), tf.float32),
+        output_shapes=(((None, timesteps, patch_size[0], patch_size[1], 5),
+                        (None, timesteps, past_metadata_len),
+                        (None, future_metadata_len)),
+                       (None, target_len))
     ).prefetch(tf.data.experimental.AUTOTUNE)
 
     return data_loader

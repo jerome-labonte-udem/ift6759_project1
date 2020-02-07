@@ -144,6 +144,56 @@ def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime
     return metadatas
 
 
+def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
+                 past_time_offsets: List[datetime.timedelta],
+                 target_time_offsets: List[datetime.timedelta], stations: OrderedDict) -> Tuple[List[List], List]:
+    """
+    Get past and future metadata for every datetime in given list
+    :param df: pandas dataframe
+    :param target_datetimes: all datetimes that we want metadata for
+    :param past_time_offsets: the list of timedeltas that we want to get data back from T0
+    :param target_time_offsets: the list of timedeltas to predict GHIs for (by definition: [T=0, T+1h, T+3h, T+6h]).
+    :param stations: dict station
+    :return: list of np.array containing past metadata and future metadata for each datetime
+    """
+    past_metadatas = []
+    future_metadatas = []
+    place_holder = 0.0
+    for begin in target_datetimes:
+        t0 = pd.Timestamp(begin)
+        for station in stations.keys():
+            metadata_sequence = []
+            for offset in past_time_offsets:
+                try:
+                    metadata = []
+                    metadata.append(df.loc[t0 - offset, f"{station}_CLEARSKY_GHI"])
+                    metadata.append(df.loc[t0 - offset, f"{station}_DAYTIME"])
+                    metadata.append((t0 - offset).dayofyear)
+                    metadata.append((t0 - offset).hour)
+                    metadata.append((t0 - offset).minute)
+                    metadata_sequence.append(metadata)
+                except KeyError as err:
+                    # If CLEARSKY_GHI not available in df -> GHI not available as well
+                    # so these timestamps will be removed from get_labels()
+                    # Probably trying to look in 2016 but we don't have access to these values
+                    print(f"KeyError: {err}")
+                    metadata_sequence.append(place_holder)
+            past_metadatas.append(metadata_sequence)
+
+            future_metadata = []
+            for offset in target_time_offsets:
+                try:
+                    future_metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
+                except KeyError as err:
+                    # If CLEARSKY_GHI not available in df -> GHI not available as well
+                    # so these timestamps will be removed from get_labels()
+                    # Probably trying to look in 2016 but we don't have access to these values
+                    print(f"KeyError: {err}")
+                    future_metadata.append(place_holder)
+            future_metadatas.append(future_metadata)
+    return past_metadatas, future_metadatas
+
+
 def get_hdf5_samples_from_day(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],

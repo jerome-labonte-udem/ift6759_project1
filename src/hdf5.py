@@ -144,7 +144,8 @@ class HDF5File:
             y_idx = (int(coords[1] - patch_size[0] // 2), int(coords[1] + patch_size[0] // 2))
             patch = channel_data[:, x_idx[0]:x_idx[1], y_idx[0]:y_idx[1]]
             patch = np.transpose(patch, (1, 2, 0))
-            patches.append(patch)
+            # TODO get real image from previous timestamps
+            patches.append(4 * [patch])
         return patches
 
     @staticmethod

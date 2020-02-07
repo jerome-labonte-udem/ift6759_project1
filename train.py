@@ -114,13 +114,16 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     # Here, we assume that the model Class is in a module with the same name and under models
     model_name = config["model_name"]
     model_module = importlib.import_module(f".{model_name}", package="models")
+    inp_img_seq = tf.keras.layers.Input((4, 32, 32, 5))
+    inp_metadata_seq = tf.keras.layers.Input((4, 5))
+    inp_future_metadata = tf.keras.layers.Input(4)
+    inp_shapes = [inp_img_seq, inp_metadata_seq, inp_future_metadata]
     model = getattr(model_module, model_name)()
+    model(inp_shapes)
+    print(model.summary())
 
-    # TODO allow metadata to be configurable
-    metadata_len = 4 + len(target_time_offsets)
-
-    model.build([(None, patch_size[0], patch_size[1],
-                  5), (None, metadata_len)])
+    # model.build([(None, patch_size[0], patch_size[1],
+    #              5), (None, metadata_len)])
 
     compile_params = config["compile_params"]
     model.compile(**compile_params)
