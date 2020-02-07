@@ -18,7 +18,8 @@ def hdf5_dataloader_list_of_days(
         stations: Dict = None,
         config: Dict[AnyStr, Any] = None,
         data_directory: Optional[str] = None,
-        patch_size: Tuple[int, int] = (32, 32)
+        patch_size: Tuple[int, int] = (32, 32),
+        previous_time_offsets: List[datetime.timedelta] = None
 ) -> tf.data.Dataset:
     """
     * Train time *: Dataloader that takes as argument a list of days
@@ -40,6 +41,7 @@ def hdf5_dataloader_list_of_days(
         test_time: if test_time, return None as target
         patch_size:
         stations:
+        previous_time_offsets:
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
@@ -49,6 +51,11 @@ def hdf5_dataloader_list_of_days(
         stations = Station.COORDS
     else:
         stations = {k: Station.COORDS[k] for k in stations.keys()}
+
+    if previous_time_offsets is None:
+        input_shape = (None, patch_size[0], patch_size[1], 5)
+    else:
+        input_shape = (None, len(previous_time_offsets) + 1, patch_size[0], patch_size[1], 5)
 
     # Add a Boolean flag true/false to know which rows are invalid t0s for training time
     dataframe = Catalog.add_invalid_t0_column(dataframe)
@@ -77,11 +84,15 @@ def hdf5_dataloader_list_of_days(
             for i in range(0, len(target_datetimes)):
                 # Generate randomly batch_size timestamps from that given day
                 batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
-                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
-                                                                directory=data_directory, patch_size=patch_size,
-                                                                stations=stations)
+                samples, invalids_i = get_hdf5_samples_from_day(
+                    dataframe, batch_of_datetimes, patch_size, data_directory, stations, previous_time_offsets
+                )
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
+                if len(batch_of_datetimes) == 0:
+                    # whole day is invalid
+                    continue
+                print(f"batch_of_datetimes = {batch_of_datetimes}")
                 metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
                                                       target_time_offsets, stations)
                 targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
@@ -97,7 +108,7 @@ def hdf5_dataloader_list_of_days(
     # TODO: Check if that's how prefetch should be used
     data_loader = tf.data.Dataset.from_generator(
         data_generator, output_types=((tf.float32, tf.float32), tf.float32),
-        output_shapes=(((None, patch_size[0], patch_size[1], 5), (None, metadata_len)), (None, target_len))
+        output_shapes=((input_shape, (None, metadata_len)), (None, target_len))
     ).prefetch(tf.data.experimental.AUTOTUNE)
 
     return data_loader
