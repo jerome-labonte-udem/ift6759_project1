@@ -68,7 +68,7 @@ def hdf5_dataloader_list_of_days(
                 # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
-                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes,
+                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
                                                               target_time_offsets, stations)
                 targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
 

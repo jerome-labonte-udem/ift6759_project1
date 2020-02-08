@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import datetime
-from src.schema import get_target_time_offsets, Station
+from src.schema import get_target_time_offsets, Station, Catalog
 from src.data_pipeline import hdf5_dataloader_list_of_days
 from matplotlib import pyplot as plt
 import cv2 as cv
@@ -13,7 +13,7 @@ class TestDataPipeline(unittest.TestCase):
     def setUp(self) -> None:
         self.data_dir = Path(Path(__file__).parent.parent, "data")
         self.data_path = Path(self.data_dir, "catalog.helios.public.20100101-20160101.pkl")
-        self.df = pd.read_pickle(self.data_path)
+        self.df = Catalog.add_invalid_t0_column(pd.read_pickle(self.data_path))
         self.datetime_hdf5_last = pd.Timestamp(np.datetime64('2015-12-31T08:00:00.000000000'))
         self.datetime_hdf5_middle_1 = pd.Timestamp(np.datetime64('2012-01-08T08:00:00.000000000'))
         self.datetime_hdf5_middle_2 = pd.Timestamp(np.datetime64('2012-01-09T08:00:00.000000000'))
@@ -29,45 +29,44 @@ class TestDataPipeline(unittest.TestCase):
         Test 1) Previous time offsets are given (looking at past days)
         Test 2) Only looking at T0
         """
-        for i in range(2):
-            prev_to = self.previous_time_offsets if i == 0 else None
-            list_days = [self.datetime_hdf5_first, self.datetime_hdf5_middle_2, self.datetime_hdf5_last]
-            dataset = hdf5_dataloader_list_of_days(
-                self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir,
-                patch_size=(32, 32), batch_size=8, test_time=False, previous_time_offsets=prev_to
-            )
+        list_days = [self.datetime_hdf5_first, self.datetime_hdf5_middle_2, self.datetime_hdf5_last]
+        dataset = hdf5_dataloader_list_of_days(
+            self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir,
+            patch_size=(32, 32), batch_size=8, test_time=False, previous_time_offsets=self.previous_time_offsets
+        )
 
-            for (sample, metadata), target in dataset:
-                self.assertEqual(len(sample), len(target))
-                self.assertEqual(len(metadata), len(target))
-                for t in target:
-                    self.assertEqual(len(get_target_time_offsets()), len(t))
+        for (sample, past_metadata, future_metadata), target in dataset:
+            self.assertEqual(len(sample), len(target))
+            self.assertEqual(len(past_metadata), len(target))
+            self.assertEqual(len(future_metadata), len(target))
+            for t in target:
+                self.assertEqual(len(get_target_time_offsets()), len(t))
 
     def test_hdf5_data_loader_test_time(self):
         # Test dataloader at test time (list of target times)
         # Test with two cases, 1) we have some previous time offsets (looking at past images)
-        # and 2) only looking at t0
-        for i in range(2):
-            prev_to = self.previous_time_offsets if i == 0 else None
-            list_datetimes = [
-                self.datetime_hdf5_first,
-                self.datetime_hdf5_first + datetime.timedelta(hours=3),
-                self.datetime_hdf5_middle_2,
-                self.datetime_hdf5_middle_2 + datetime.timedelta(hours=1, minutes=15),
-                self.datetime_hdf5_last,
-                self.datetime_hdf5_last + datetime.timedelta(hours=1),
-                self.datetime_hdf5_last + datetime.timedelta(hours=3),
-                self.datetime_hdf5_last + datetime.timedelta(hours=6, minutes=15),
-                self.datetime_hdf5_last + datetime.timedelta(hours=12)
-            ]
+        # and 2) only looking at t0s
+        list_datetimes = [
+            self.datetime_hdf5_first,
+            self.datetime_hdf5_first + datetime.timedelta(hours=3),
+            self.datetime_hdf5_middle_2,
+            self.datetime_hdf5_middle_2 + datetime.timedelta(hours=1, minutes=15),
+            self.datetime_hdf5_last,
+            self.datetime_hdf5_last + datetime.timedelta(hours=1),
+            self.datetime_hdf5_last + datetime.timedelta(hours=3),
+            self.datetime_hdf5_last + datetime.timedelta(hours=6, minutes=15),
+            self.datetime_hdf5_last + datetime.timedelta(hours=12)
+        ]
 
-            dataset = hdf5_dataloader_list_of_days(
-                self.df, list_datetimes, get_target_time_offsets(), data_directory=self.hdf8_dir,
-                batch_size=len(list_datetimes), test_time=True, previous_time_offsets=prev_to
-            )
-            for (sample, metadata), target in dataset:
-                self.assertEqual(len(sample), len(target))
-                self.assertEqual(len(metadata), len(target))
+        dataset = hdf5_dataloader_list_of_days(
+            self.df, list_datetimes, get_target_time_offsets(), data_directory=self.hdf8_dir,
+            batch_size=len(list_datetimes), test_time=True, previous_time_offsets=self.previous_time_offsets,
+            stations=Station.COORDS
+        )
+        for (sample, past_metadata, future_metadata), target in dataset:
+            self.assertEqual(len(sample), len(target))
+            self.assertEqual(len(past_metadata), len(target))
+            self.assertEquals(len(future_metadata), len(target))
 
     def test_visualize_one_sample(self):
         """ Visualize all photos (previous and t0) of a sample"""
@@ -85,7 +84,7 @@ class TestDataPipeline(unittest.TestCase):
         )
 
         fig, axs = plt.subplots(3, 3)
-        for idx, ((sample, metadata), target) in enumerate(dataset):
+        for idx, ((sample, past_metadata, future_metadata), target) in enumerate(dataset):
             if sample.shape[1] != len(hours_min):
                 continue
             for i in range(sample.shape[1]):
