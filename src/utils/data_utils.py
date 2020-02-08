@@ -167,11 +167,11 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             for offset in past_time_offsets:
                 try:
                     metadata = []
-                    metadata.append(df.loc[t0 - offset, f"{station}_CLEARSKY_GHI"])
-                    metadata.append(df.loc[t0 - offset, f"{station}_DAYTIME"])
-                    metadata.append((t0 - offset).dayofyear)
-                    metadata.append((t0 - offset).hour)
-                    metadata.append((t0 - offset).minute)
+                    metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
+                    metadata.append(df.loc[t0 + offset, f"{station}_DAYTIME"])
+                    metadata.append((t0 + offset).dayofyear)
+                    metadata.append((t0 + offset).hour)
+                    metadata.append((t0 + offset).minute)
                     metadata_sequence.append(metadata)
                 except KeyError as err:
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
@@ -198,10 +198,10 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
 def get_hdf5_samples_from_day(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
+        previous_time_offsets: List[datetime.timedelta],
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
         stations: OrderedDict = Station.COORDS,
-        previous_time_offsets: List[datetime.timedelta] = None
 ) -> Tuple[List[np.array], List[int]]:
     """
     This is for train/validation time only.
@@ -256,10 +256,10 @@ def get_hdf5_samples_from_day(
 def get_hdf5_samples_list_datetime(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
+        previous_time_offsets: List[datetime.timedelta],
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
         stations: OrderedDict = Station.COORDS,
-        previous_time_offsets: List[datetime.timedelta] = None
 ) -> Tuple[List[np.array], List[int]]:
     """
     Open one .hdf5 file for each target_datetime provided
@@ -340,11 +340,6 @@ def _get_one_sample(
 
     if patch is None or len(patch) == 0:  # t0 image is invalid
         return None
-    else:
-        if previous_time_offsets is None:
-            return patch
-        else:
-            patches_index.append(patch)
 
     previous_offsets = HDF5File.get_offsets(
         pd.Timestamp(target_datetime), previous_time_offsets
@@ -367,7 +362,7 @@ def _get_one_sample(
             patches_index.insert(len(patches_index) - 1, patch_prev)
 
     patches_index = np.stack(patches_index, axis=-1)
-    # We want size (len_stations, len(previous_time_offsets) + 1, patch_size, patch_size, n_channels)
+    # We want size (len_stations, len(previous_time_offsets), patch_size, patch_size, n_channels)
     patches_index = np.transpose(patches_index, (0, 4, 1, 2, 3))
     return patches_index
 

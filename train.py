@@ -69,7 +69,7 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     dataframe_path = config["dataframe_path"]
     assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
     dataframe = pd.read_pickle(dataframe_path)
-
+    dataframe = Catalog.add_invalid_t0_column(dataframe)
     data_path = config["data_path"]
     assert os.path.isdir(data_path), f"invalid data path: {data_path}"
 
@@ -82,6 +82,7 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     train_stations = config["train_stations"]
     val_stations = config["val_stations"]
     target_time_offsets = [pd.Timedelta(d).to_pytimedelta() for d in config["target_time_offsets"]]
+    previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
 
     start_time = config["start_bound"]
     start_datetime = datetime.datetime.fromisoformat(start_time)
@@ -94,7 +95,8 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     train_data = hdf5_dataloader_list_of_days(dataframe, train_datetimes,
                                               target_time_offsets, data_directory=Path(data_path),
                                               batch_size=train_batch_size, test_time=False,
-                                              patch_size=patch_size, stations=train_stations)
+                                              patch_size=patch_size, stations=train_stations,
+                                              previous_time_offsets=previous_time_offsets)
 
     val_start_time = config["val_start_bound"]
     val_start_datetime = datetime.datetime.fromisoformat(val_start_time)
@@ -109,14 +111,17 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     val_data = hdf5_dataloader_list_of_days(dataframe, val_datetimes,
                                             target_time_offsets, data_directory=Path(data_path),
                                             batch_size=val_batch_size, test_time=False,
-                                            patch_size=patch_size, stations=val_stations)
+                                            patch_size=patch_size, stations=val_stations,
+                                            previous_time_offsets=previous_time_offsets)
 
     # Here, we assume that the model Class is in a module with the same name and under models
     model_name = config["model_name"]
     model_module = importlib.import_module(f".{model_name}", package="models")
-    inp_img_seq = tf.keras.layers.Input((4, 32, 32, 5))
-    inp_metadata_seq = tf.keras.layers.Input((4, 5))
-    inp_future_metadata = tf.keras.layers.Input(4)
+    timesteps = len(previous_time_offsets)
+    target_len = len(target_time_offsets)
+    inp_img_seq = tf.keras.layers.Input((timesteps, 32, 32, 5))
+    inp_metadata_seq = tf.keras.layers.Input((timesteps, 5))
+    inp_future_metadata = tf.keras.layers.Input(target_len)
     inp_shapes = [inp_img_seq, inp_metadata_seq, inp_future_metadata]
     model = getattr(model_module, model_name)()
     model(inp_shapes)

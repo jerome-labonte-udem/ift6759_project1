@@ -1,9 +1,9 @@
 {
   "dataframe_path": "./data/catalog.helios.public.20100101-20160101.pkl",
   "data_path": "./data/hdf5v7_8bit",
-  "epochs": 25,
-  "train_batch_size": 32,
-  "val_batch_size": 32,
+  "epochs": 15,
+  "train_batch_size": 16,
+  "val_batch_size": 16,
   "start_bound": "2011-01-01T08:00:00",
   "end_bound": "2011-01-24T08:00:00",
   "val_start_bound": "2011-01-25T08:00:00",
@@ -34,5 +34,8 @@
     "P0DT1H0M0S",
     "P0DT3H0M0S",
     "P0DT6H0M0S"
+  ],
+    "previous_time_offsets": [
+    "P0DT0H0M0S"
   ]
 }
