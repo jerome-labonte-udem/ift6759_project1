@@ -101,7 +101,7 @@ def get_labels_list_datetime(
                         list_ghi.append(ghi)
                 except KeyError as err:
                     # Probably trying to look in 2016 but we don't have access to these GHI values
-                    print(f"KeyError: {err}")
+                    logging.debug(f"KeyError: {err}")
                     invalid_indexes.append(i * len(stations) + j)
                     invalid = True
                     break
@@ -135,7 +135,7 @@ def get_metadata_list_datetime(df: pd.DataFrame, target_datetimes: List[datetime
                 # If CLEARSKY_GHI not available in df -> GHI not available as well
                 # so these timestamps will be removed from get_labels()
                 # Probably trying to look in 2016 but we don't have access to these values
-                print(f"KeyError: {err}")
+                logging.debug(f"KeyError: {err}")
                 metadata.append(place_holder)
             metadata.append(df.loc[t0, f"{station}_DAYTIME"])
             metadata.append(t0.dayofyear)
@@ -176,8 +176,86 @@ def get_hdf5_samples_from_day(
         folder, filename = os.path.split(path)
         hdf5_path = os.path.join(directory, filename)
 
-    sample_indexes = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
+    sample_offsets = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
 
+    # Make sure the file of previous day exists !
+    f_h5_before = _get_path_yesterday(t0, df, path, directory)
+    h5_previous = None if f_h5_before is None else HDF5File(f_h5_before)
+
+    patches = []
+    # List of invalid indexes in array, (no data, invalid path, etc.)
+    invalid_indexes = []
+
+    with h5py.File(hdf5_path, "r") as f_h5:
+        h5 = HDF5File(f_h5)
+        for i, offset in enumerate(sample_offsets):
+            patches_index = _get_one_sample(
+                h5, target_datetimes[i], offset, stations, patch_size, previous_time_offsets, h5_previous
+            )
+            if patches_index is None or len(patches_index) == 0:
+                invalid_indexes.append(i)
+            else:
+                patches.extend(patches_index)
+
+    if f_h5_before is not None:
+        f_h5_before.close()
+
+    return patches, invalid_indexes
+
+
+def get_hdf5_samples_list_datetime(
+        df: pd.DataFrame,
+        target_datetimes: List[datetime.datetime],
+        patch_size: Tuple[int, int],
+        directory: Optional[str] = None,
+        stations: OrderedDict = Station.COORDS,
+        previous_time_offsets: List[datetime.timedelta] = None
+) -> Tuple[List[np.array], List[int]]:
+    """
+    Open one .hdf5 file for each target_datetime provided
+    :param previous_time_offsets:
+    :param stations:
+    :param patch_size:
+    :param target_datetimes:
+    :param df: catalog.pkl
+    :param directory: If directory is not provided (None), use the path from catalog dataframe,
+    else use the directory provided but with same filename
+    :return: Tuple[patches as np,array, list of index of invalid target_datimes (no picture)]
+    """
+    paths = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_path] for t in target_datetimes]
+    sample_offsets = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
+    patches = []
+    # List of invalid indexes in array, (no data, invalid path, etc.)
+    invalid_indexes = []
+    for i, path in enumerate(paths):
+        if directory is None:
+            hdf5_path = path
+        else:
+            folder, filename = os.path.split(path)
+            hdf5_path = os.path.join(directory, filename)
+
+        # Make sure the file of previous day exists !
+        t0 = pd.Timestamp(target_datetimes[i])
+        f_h5_before = _get_path_yesterday(t0, df, path, directory)
+        h5_previous = None if f_h5_before is None else HDF5File(f_h5_before)
+
+        with h5py.File(hdf5_path, "r") as f_h5:
+            h5 = HDF5File(f_h5)
+            patches_index = _get_one_sample(
+                h5, target_datetimes[i], sample_offsets[i], stations, patch_size, previous_time_offsets, h5_previous
+            )
+            if patches_index is None or len(patches_index) == 0:
+                invalid_indexes.append(i)
+            else:
+                patches.extend(patches_index)
+
+        if f_h5_before is not None:
+            f_h5_before.close()
+
+    return patches, invalid_indexes
+
+
+def _get_path_yesterday(t0: pd.Timestamp, df: pd.DataFrame, path: str, directory: str) -> Optional[h5py.File]:
     # Make sure the file of previous day exists !
     t_min_24 = t0 - datetime.timedelta(hours=24)
     if t_min_24 in df.index:
@@ -189,102 +267,59 @@ def get_hdf5_samples_from_day(
             hdf5_path_before = os.path.join(directory, filename)
         if os.path.exists(hdf5_path_before):
             f_h5_before = h5py.File(hdf5_path_before, "r")
-            h5_previous = HDF5File(f_h5_before)
         else:
-            print(f"HDF5 file for previous day doesn't exist ! path = {hdf5_path_before}")
-            f_h5_before, h5_previous = None, None
+            logging.debug(f"HDF5 file for previous day doesn't exist ! path = {hdf5_path_before}")
+            f_h5_before = None
     else:
-        print(f"Day before t0={t0} is not in the dataframe! t-24 = {t_min_24}")
-        f_h5_before, h5_previous = None, None
-
-    glob_patches = []
-    # List of invalid indexes in array, (no data, invalid path, etc.)
-    invalid_indexes = []
-
-    with h5py.File(hdf5_path, "r") as f_h5:
-        h5 = HDF5File(f_h5)
-        print(f"h5.orig_min('ch1') = {h5.orig_min('ch1')}")
-        print(f"h5.orig_max('ch1') = {h5.orig_max('ch1')}")
-        for i, index in enumerate(sample_indexes):
-            patches_index = []
-            patch = h5.get_image_patches(index, stations, patch_size=patch_size)
-
-            if patch is None or len(patch) == 0:  # t0 image is invalid
-                invalid_indexes.append(i)
-                continue
-            else:
-                patches_index.append(patch)
-
-            previous_offsets = HDF5File.get_offsets(
-                pd.Timestamp(target_datetimes[i]), previous_time_offsets
-            )
-
-            for offset, is_previous in previous_offsets:
-                if is_previous:
-                    # Looking in file from day before
-                    if h5_previous is None:
-                        patch_prev = None
-                    else:
-                        patch_prev = h5_previous.get_image_patches(offset, stations, patch_size=patch_size)
-                else:
-                    patch_prev = h5.get_image_patches(offset, stations, patch_size=patch_size)
-
-                if patch_prev is None or len(patch_prev) == 0:
-                    # No image available at t0 - offset
-                    print(f" No image available at offset {offset}")
-                    patches_index.insert(len(patches_index) - 1, np.zeros_like(patch))
-                else:
-                    patches_index.insert(len(patches_index) - 1, patch_prev)
-
-            patches_index = np.stack(patches_index, axis=-1)
-            # We want size (len_stations, len(previous_time_offsets) + 1, patch_size, patch_size, n_channels)
-            print(f"patches_index.shape = {patches_index.shape}")
-            patches_index = np.transpose(patches_index, (0, 4, 1, 2, 3))
-            glob_patches.extend(patches_index)
-
-    if f_h5_before is not None:
-        f_h5_before.close()
-
-    return glob_patches, invalid_indexes
+        logging.debug(f"Day before t0={t0} is not in the dataframe! t-24 = {t_min_24}")
+        f_h5_before = None
+    return f_h5_before
 
 
-def get_hdf5_samples_list_datetime(
-        df: pd.DataFrame,
-        target_datetimes: List[datetime.datetime],
+def _get_one_sample(
+        h5: HDF5File,
+        target_datetime: datetime.datetime,
+        t0_offset: int,
+        stations: OrderedDict,
         patch_size: Tuple[int, int],
-        directory: Optional[str] = None,
-        stations: OrderedDict = Station.COORDS
-) -> Tuple[List[np.array], List[int]]:
-    """
-    Open one .hdf5 file for each target_datetime provided
-    :param stations:
-    :param patch_size:
-    :param target_datetimes:
-    :param df: catalog.pkl
-    :param directory: If directory is not provided (None), use the path from catalog dataframe,
-    else use the directory provided but with same filename
-    :return: Tuple[patches as np,array, list of index of invalid target_datimes (no picture)]
-    """
-    paths = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_path] for t in target_datetimes]
-    sample_indexes = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
-    patches = []
-    # List of invalid indexes in array, (no data, invalid path, etc.)
-    invalid_indexes = []
-    for i, path in enumerate(paths):
-        if directory is None:
-            hdf5_path = path
-        else:
-            folder, filename = os.path.split(path)
-            hdf5_path = os.path.join(directory, filename)
-        with h5py.File(hdf5_path, "r") as f_h5:
-            h5 = HDF5File(f_h5)
-            patches_index = h5.get_image_patches(sample_indexes[i], stations, patch_size=patch_size)
-            if not patches_index:
-                invalid_indexes.append(i)
-            else:
-                patches.extend(patches_index)
+        previous_time_offsets: List[datetime.timedelta],
+        h5_previous: HDF5File = None,
+):
+    patches_index = []
+    patch = h5.get_image_patches(t0_offset, stations, patch_size=patch_size)
 
-    return patches, invalid_indexes
+    if patch is None or len(patch) == 0:  # t0 image is invalid
+        return None
+    else:
+        if previous_time_offsets is None:
+            return patch
+        else:
+            patches_index.append(patch)
+
+    previous_offsets = HDF5File.get_offsets(
+        pd.Timestamp(target_datetime), previous_time_offsets
+    )
+
+    for prev_offset, is_previous in previous_offsets:
+        if is_previous:
+            # Looking in file from day before
+            if h5_previous is None:
+                patch_prev = None
+            else:
+                patch_prev = h5_previous.get_image_patches(prev_offset, stations, patch_size=patch_size)
+        else:
+            patch_prev = h5.get_image_patches(prev_offset, stations, patch_size=patch_size)
+
+        if patch_prev is None or len(patch_prev) == 0:
+            # No image available at t0 - offset
+            patches_index.insert(len(patches_index) - 1, np.zeros_like(patch))
+        else:
+            patches_index.insert(len(patches_index) - 1, patch_prev)
+
+    patches_index = np.stack(patches_index, axis=-1)
+    # We want size (len_stations, len(previous_time_offsets) + 1, patch_size, patch_size, n_channels)
+    patches_index = np.transpose(patches_index, (0, 4, 1, 2, 3))
+    return patches_index
 
 
 def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
