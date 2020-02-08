@@ -2,9 +2,10 @@ import tensorflow as tf
 import pandas as pd
 from typing import List, Dict, Any, AnyStr, Tuple, Optional
 import datetime
-from src.schema import Station
+from src.schema import Station, Catalog
 from src.utils.data_utils import (
-    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata
+    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day,
+    get_hdf5_samples_list_datetime
 )
 
 
@@ -17,7 +18,8 @@ def hdf5_dataloader_list_of_days(
         stations: Dict = None,
         config: Dict[AnyStr, Any] = None,
         data_directory: Optional[str] = None,
-        patch_size: Tuple[int, int] = (32, 32)
+        patch_size: Tuple[int, int] = (32, 32),
+        previous_time_offsets: List[datetime.timedelta] = None
 ) -> tf.data.Dataset:
     """
     * Train time *: Dataloader that takes as argument a list of days
@@ -38,6 +40,9 @@ def hdf5_dataloader_list_of_days(
         the paths from the dataframe
         test_time: if test_time, return None as target
         patch_size:
+        stations:
+        previous_time_offsets: list of timedelta of previous pictures that we want to look at,
+        if not provided we only look at t0
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
@@ -48,16 +53,16 @@ def hdf5_dataloader_list_of_days(
     else:
         stations = {k: Station.COORDS[k] for k in stations.keys()}
 
-    # TODO get past_time_offsets from config and pass it to this method
-    past_time_offsets = target_time_offsets
-
     def data_generator():
         if test_time:  # Directly use the provided list of datetimes
             for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
                 batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
-                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
-                                                                directory=data_directory, patch_size=patch_size,
-                                                                stations=stations)
+                if not batch_of_datetimes:
+                    continue
+
+                samples, invalids_i = get_hdf5_samples_list_datetime(
+                    dataframe, batch_of_datetimes, patch_size, data_directory, stations, previous_time_offsets
+                )
                 # Remove invalid indexes so that len(targets) == len(samples)
                 # Delete them in reverse order so that you don't throw off the subsequent indexes.
                 # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
@@ -72,14 +77,14 @@ def hdf5_dataloader_list_of_days(
             for i in range(0, len(target_datetimes)):
                 # Generate randomly batch_size timestamps from that given day
                 batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
-                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
-                                                                directory=data_directory, patch_size=patch_size,
-                                                                stations=stations)
-                # Remove invalid indexes so that len(targets) == len(samples)
-                # Delete them in reverse order so that you don't throw off the subsequent indexes.
-                # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
+                samples, invalids_i = get_hdf5_samples_from_day(
+                    dataframe, batch_of_datetimes, patch_size, data_directory, stations, previous_time_offsets
+                )
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
+                if len(batch_of_datetimes) == 0:
+                    # whole day is invalid
+                    continue
                 past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, past_time_offsets,
                                                               target_time_offsets, stations)
                 targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,

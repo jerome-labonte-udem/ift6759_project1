@@ -4,7 +4,7 @@ from pathlib import Path
 from src.utils.data_utils import (
     get_metadata_start_end, get_labels_start_end, get_labels_list_datetime, random_timestamps_from_day
 )
-from src.schema import Station, get_target_time_offsets
+from src.schema import Station, Catalog, get_target_time_offsets
 import numpy as np
 
 
@@ -48,8 +48,11 @@ class TestDataUtils(unittest.TestCase):
         for index in invalid_indexes:
             self.assertTrue(0 < index < 100 * len(Station.list()))
 
-    def test_random_timestamps_from_day(self):
-        """ Test that starting from one day, we can randomly sample X timestamps from that day """
+    def test_add_invalid_t0_column(self):
+        print(f"Dataframe has total of {len(self.df)} rows")
+        df = Catalog.add_invalid_t0_column(self.df)
+        print(f"Number of invalid rows for t0 = {len(df.loc[df['is_invalid']])}")
+        # Test that starting from one day, we can randomly sample X timestamps from that day
         bs = 10
         ts = random_timestamps_from_day(self.df, self.datetime_hdf5_test, batch_size=bs)
         self.assertEqual(10, len(ts))

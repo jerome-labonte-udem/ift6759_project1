@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import tqdm
 from src.hdf5 import HDF5File
+from src.schema import Catalog
 
 
 def get_label_color_mapping(idx):
@@ -376,3 +377,25 @@ def viz_predictions(
             day_idx = max(day_idx - 1, 0)
         elif ret == 82 or ret == 83:  # UNIX: right or up arrow
             day_idx = min(day_idx + 1, len(displays) - 1)
+
+
+def visualize_daytime_by_hour(df: pd.DataFrame, stations: typing.List[str]) -> None:
+    """
+    Create 1 bar plot per station, to visualize the proportions of daytime=true
+    per hour in UTC time
+    :param df: catalog.pkl
+    :param stations:
+    """
+    for i, station in enumerate(stations):
+        df_stat = df.loc[df[Catalog.daytime(station)] == 1][Catalog.daytime(station)]
+        plt.figure(figsize=(7, 3))
+
+        print(type(df_stat.index))
+        print(df_stat.head())
+        ok = df_stat.groupby(df_stat.index.hour).count()
+        ax = ok.plot(kind="bar")
+        ax.set_facecolor('#eeeeee')
+        ax.set_xlabel("Hour of the day")
+        ax.set_ylabel("count")
+        ax.set_title(f"Station {station}")
+        plt.show()

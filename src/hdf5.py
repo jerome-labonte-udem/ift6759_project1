@@ -115,7 +115,7 @@ class HDF5File:
             sample_idx: int,
             stations_coords: collections.OrderedDict,
             patch_size: Tuple[int, int] = (16, 16)
-    ) -> List[np.array]:
+    ) -> np.array:
         """
         :param sample_idx: index in the hdf5 file
         :param stations_coords: dictionnary of str -> (coord_x, coord_y) in the numpy array
@@ -144,15 +144,15 @@ class HDF5File:
             y_idx = (int(coords[1] - patch_size[0] // 2), int(coords[1] + patch_size[0] // 2))
             patch = channel_data[:, x_idx[0]:x_idx[1], y_idx[0]:y_idx[1]]
             patch = np.transpose(patch, (1, 2, 0))
-            # TODO get real image from previous timestamps
-            patches.append(4 * [patch])
-        return patches
+            patches.append(patch)
+        return np.array(patches)
 
     @staticmethod
-    def get_offsets(t0: pd.Timestamp, target_time_offsets: List[datetime.timedelta]) -> List[int]:
+    def get_offsets(t0: pd.Timestamp, target_time_offsets: List[datetime.timedelta]) -> List[Tuple[int, bool]]:
         """ Transform essentially a list of timestamps into hdf5_offsets to retrieve images
         e.g. hdf5_offset = 32  -> corresponds to: 2010.06.01.0800 + (32)*15min = 2010.06.01.1600
         This is also referred as sample_idx in other functions
+        :return list of tuples of [offset, is_in_previous
         """
         hdf5_offsets = []
         start_day = t0.replace(hour=8, minute=0, second=0)
@@ -163,5 +163,7 @@ class HDF5File:
             if ts < 0:
                 #  If time is negative, i.e. before < 0800, find appropriate offset
                 ts = 4 * 24 + ts
-            hdf5_offsets.append(int(ts))
+                hdf5_offsets.append((int(ts), True))
+            else:
+                hdf5_offsets.append((int(ts), False))
         return hdf5_offsets
