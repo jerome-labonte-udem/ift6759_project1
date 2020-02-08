@@ -41,7 +41,8 @@ def hdf5_dataloader_list_of_days(
         test_time: if test_time, return None as target
         patch_size:
         stations:
-        previous_time_offsets:
+        previous_time_offsets: list of timedelta of previous pictures that we want to look at,
+        if not provided we only look at t0
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
