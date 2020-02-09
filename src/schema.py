@@ -112,3 +112,14 @@ def get_target_time_offsets():
         datetime.timedelta(hours=3),
         datetime.timedelta(hours=6)
     ]
+
+
+def get_previous_time_offsets():
+    """Example of previous time offsets list for tests"""
+    return [
+        -datetime.timedelta(hours=3),
+        -datetime.timedelta(hours=2, minutes=15),
+        -datetime.timedelta(hours=1, minutes=30),
+        -datetime.timedelta(hours=0, minutes=45),
+        datetime.timedelta(hours=0)
+    ]

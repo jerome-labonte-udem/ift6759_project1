@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import tqdm
-from models.CNN2D import CNN2D
 from pathlib import Path
 from src.data_pipeline import hdf5_dataloader_list_of_days
 
