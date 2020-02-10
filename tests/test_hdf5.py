@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 from src.schema import Catalog, Station, get_target_time_offsets
 from src.hdf5 import HDF5File
+import datetime
 
 
 class TestHDF5File(unittest.TestCase):
@@ -17,29 +18,42 @@ class TestHDF5File(unittest.TestCase):
         self.hdf8_dir = Path(self.data_dir, "hdf5v7_8bit")
         self.hdf5_path = Path(self.hdf8_dir, "2015.12.31.0800.h5")
 
-    def test_get_hdf5_offsets(self):
+    def test_get_offsets_calculation(self):
         midnight = pd.Timestamp(self.df.index[0])
         offsets = HDF5File.get_offsets(midnight, get_target_time_offsets())
-        self.assertEqual(16 * 4, offsets[0])
-        self.assertEqual(17 * 4, offsets[1])
-        self.assertEqual(19 * 4, offsets[2])
-        self.assertEqual(22 * 4, offsets[3])
+        self.assertEqual(16 * 4, offsets[0][0])
+        self.assertEqual(17 * 4, offsets[1][0])
+        self.assertEqual(19 * 4, offsets[2][0])
+        self.assertEqual(22 * 4, offsets[3][0])
         # Starting at 9:45
         nine_45 = pd.Timestamp(self.df.index[39])
         offsets = HDF5File.get_offsets(nine_45, get_target_time_offsets())
-        self.assertEqual(self.df.iloc[39][Catalog.hdf5_8bit_offset], offsets[0])
-        self.assertEqual(7, offsets[0])
-        self.assertEqual(7 + 4, offsets[1])
-        self.assertEqual(7 + 4 * 3, offsets[2])
-        self.assertEqual(7 + 4 * 6, offsets[3])
+        self.assertEqual(self.df.iloc[39][Catalog.hdf5_8bit_offset], offsets[0][0])
+        self.assertEqual(7, offsets[0][0])
+        self.assertEqual(7 + 4, offsets[1][0])
+        self.assertEqual(7 + 4 * 3, offsets[2][0])
+        self.assertEqual(7 + 4 * 6, offsets[3][0])
         # Starting at 8:00
         eight = pd.Timestamp(self.df.index[32])
         offsets = HDF5File.get_offsets(eight, get_target_time_offsets())
-        self.assertEqual(self.df.iloc[32][Catalog.hdf5_8bit_offset], offsets[0])
-        self.assertEqual(0, offsets[0])
-        self.assertEqual(0 + 4, offsets[1])
-        self.assertEqual(0 + 4 * 3, offsets[2])
-        self.assertEqual(0 + 4 * 6, offsets[3])
+        self.assertEqual(self.df.iloc[32][Catalog.hdf5_8bit_offset], offsets[0][0])
+        self.assertEqual(0, offsets[0][0])
+        self.assertEqual(0 + 4, offsets[1][0])
+        self.assertEqual(0 + 4 * 3, offsets[2][0])
+        self.assertEqual(0 + 4 * 6, offsets[3][0])
+
+    def test_get_offsets_previous_day(self):
+        # Make sure that we know if we are looking at offsets from previous day
+        # Starting at 8:00
+        eight = pd.Timestamp(self.df.index[32])
+        offsets = HDF5File.get_offsets(
+            eight, [datetime.timedelta(hours=0), datetime.timedelta(hours=-1),
+                    datetime.timedelta(hours=-8, minutes=15), datetime.timedelta(hours=3)]
+        )
+        self.assertEqual(False, offsets[0][1])
+        self.assertEqual(True, offsets[1][1])
+        self.assertEqual(True, offsets[2][1])
+        self.assertEqual(False, offsets[3][1])
 
     def test_extract_patches(self):
         """ Test to extract a (x,y) patch from a hdf5 file given an index. """

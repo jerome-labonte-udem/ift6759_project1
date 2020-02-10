@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import importlib
 import json
 import os
 import typing
@@ -8,7 +9,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import tqdm
-from models.CNN2D import CNN2D
 from pathlib import Path
 from src.data_pipeline import hdf5_dataloader_list_of_days
 
@@ -65,10 +65,12 @@ def prepare_dataloader(
     """
 
     # MODIFY BELOW
+    previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
     data_path = Path("../data")
     data_loader = hdf5_dataloader_list_of_days(dataframe, target_datetimes,
                                                target_time_offsets, data_directory=Path(data_path, "hdf5v7_8bit"),
-                                               batch_size=32, stations=stations, test_time=True)
+                                               batch_size=32, stations=stations, test_time=True,
+                                               previous_time_offsets=previous_time_offsets)
     # MODIFY ABOVE
 
     return data_loader
@@ -95,8 +97,10 @@ def prepare_model(
     """
 
     # MODIFY BELOW
-    model = CNN2D()
-    model.load_weights("../tests/saved_models/cnn2d").expect_partial()
+    model_name = config["model_name"]
+    model_module = importlib.import_module(f".{model_name}", package="models")
+    model = getattr(model_module, model_name)()
+    model.load_weights(config["saved_weights_path"]).expect_partial()
     # MODIFY ABOVE
 
     return model

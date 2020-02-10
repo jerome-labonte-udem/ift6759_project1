@@ -32,7 +32,12 @@ class CNN2D(tf.keras.Model):
         :param inputs: input images and metadata
         :return: a list of four floats for GHI at each desired time
         """
-        img, metadata = inputs  # split images and metadata
+        img, past_metadata, future_metadata = inputs  # split images and metadatas
+        # Remove timesteps dimensions from sequences of size 1
+        patch_size = img.shape[2]
+        n_channels = img.shape[4]
+        img = tf.reshape(img, (-1, patch_size, patch_size, n_channels))
+        past_metadata = tf.reshape(past_metadata, (-1, past_metadata.shape[2]))
         x = self.conv_1(img)
         x = self.pool_1(x)
         x = self.conv_2(x)
@@ -40,7 +45,7 @@ class CNN2D(tf.keras.Model):
         x = self.conv_3(x)
         x = self.flatten(x)
         # concatenate encoded image and metadata
-        x = tf.keras.layers.concatenate([x, metadata], 1)
+        x = tf.keras.layers.concatenate([x, past_metadata, future_metadata], 1)
         x = self.FC1(x)
         x = self.FC2(x)
         # Create 4 outputs for t0, t0+1, t0+3 and t0+6

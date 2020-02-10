@@ -1,6 +1,7 @@
 from typing import List, Tuple
 from collections import OrderedDict
 import datetime
+import pandas as pd
 
 
 class Station:
@@ -49,6 +50,9 @@ class Catalog:
     # Shape of each channel image according to hdf5_8bit file
     size_image = (650, 1500)
 
+    # This is a Column that we add to the DF to filter out invalid t_0s to speed up training
+    is_invalid = "is_invalid"
+
     @staticmethod
     def clearsky_ghi(station: str) -> str:
         return f"{station}_CLEARSKY_GHI"
@@ -73,6 +77,31 @@ class Catalog:
             (12, 0), (15, 0), (15, 30), (18, 0), (21, 0)
         ]
 
+    @staticmethod
+    def add_invalid_t0_column(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Remove every possible t0 that has invalid path to hdf5 file / is an invalid hour /
+        / and is night_time for all stations
+        :return: same dataframe but with added column "is_invalid"
+        """
+        df[Catalog.is_invalid] = False
+
+        for hour, minute in Catalog.invalid_hours():
+            df[Catalog.is_invalid].mask((df.index.hour == hour) & (df.index.minute == minute), True, inplace=True)
+
+        df[Catalog.is_invalid].mask(df[Catalog.hdf5_8bit_path] == "nan", True, inplace=True)
+
+        df[Catalog.is_invalid].mask(
+            ((df[Catalog.daytime(Station.BND)] == 0) &
+             (df[Catalog.daytime(Station.DRA)] == 0) &
+             (df[Catalog.daytime(Station.FPK)] == 0) &
+             (df[Catalog.daytime(Station.GWN)] == 0) &
+             (df[Catalog.daytime(Station.PSU)] == 0) &
+             (df[Catalog.daytime(Station.TBL)] == 0) &
+             (df[Catalog.daytime(Station.SXF)] == 0)), True, inplace=True
+        )
+        return df
+
 
 def get_target_time_offsets():
     """ This format is to be compatible with evaluator.py
@@ -82,4 +111,15 @@ def get_target_time_offsets():
         datetime.timedelta(hours=1),
         datetime.timedelta(hours=3),
         datetime.timedelta(hours=6)
+    ]
+
+
+def get_previous_time_offsets():
+    """Example of previous time offsets list for tests"""
+    return [
+        -datetime.timedelta(hours=3),
+        -datetime.timedelta(hours=2, minutes=15),
+        -datetime.timedelta(hours=1, minutes=30),
+        -datetime.timedelta(hours=0, minutes=45),
+        datetime.timedelta(hours=0)
     ]

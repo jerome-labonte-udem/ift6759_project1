@@ -4,7 +4,8 @@ from typing import List, Dict, Any, AnyStr, Tuple, Optional
 import datetime
 from src.schema import Station
 from src.utils.data_utils import (
-    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata_list_datetime
+    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata,
+    get_hdf5_samples_list_datetime
 )
 
 
@@ -12,12 +13,13 @@ def hdf5_dataloader_list_of_days(
         dataframe: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],
+        previous_time_offsets: List[datetime.timedelta],
         batch_size: int,
         test_time: bool,
         stations: Dict = None,
         config: Dict[AnyStr, Any] = None,
         data_directory: Optional[str] = None,
-        patch_size: Tuple[int, int] = (32, 32)
+        patch_size: Tuple[int, int] = (32, 32),
 ) -> tf.data.Dataset:
     """
     * Train time *: Dataloader that takes as argument a list of days
@@ -38,6 +40,9 @@ def hdf5_dataloader_list_of_days(
         the paths from the dataframe
         test_time: if test_time, return None as target
         patch_size:
+        stations:
+        previous_time_offsets: list of timedelta of previous pictures that we want to look at,
+        if not provided we only look at t0
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
@@ -52,47 +57,56 @@ def hdf5_dataloader_list_of_days(
         if test_time:  # Directly use the provided list of datetimes
             for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
                 batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
-                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
-                                                                directory=data_directory, patch_size=patch_size,
-                                                                stations=stations)
+                if not batch_of_datetimes:
+                    continue
+
+                samples, invalids_i = get_hdf5_samples_list_datetime(
+                    dataframe, batch_of_datetimes, previous_time_offsets, patch_size, data_directory, stations,
+                )
                 # Remove invalid indexes so that len(targets) == len(samples)
                 # Delete them in reverse order so that you don't throw off the subsequent indexes.
                 # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
-                metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
-                                                      target_time_offsets, stations)
+                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
+                                                              target_time_offsets, stations)
                 targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
 
-                yield (samples, metadata), targets
+                yield (samples, past_metadata, future_metadata), targets
         else:
             for i in range(0, len(target_datetimes)):
                 # Generate randomly batch_size timestamps from that given day
                 batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
-                samples, invalids_i = get_hdf5_samples_from_day(dataframe, batch_of_datetimes,
-                                                                directory=data_directory, patch_size=patch_size,
-                                                                stations=stations)
-                # Remove invalid indexes so that len(targets) == len(samples)
-                # Delete them in reverse order so that you don't throw off the subsequent indexes.
-                # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
+                samples, invalids_i = get_hdf5_samples_from_day(
+                    dataframe, batch_of_datetimes, previous_time_offsets,  patch_size, data_directory, stations,
+                )
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
-                metadata = get_metadata_list_datetime(dataframe, batch_of_datetimes,
-                                                      target_time_offsets, stations)
+                if len(batch_of_datetimes) == 0:
+                    # whole day is invalid
+                    continue
+                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
+                                                              target_time_offsets, stations)
                 targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
                                                                   target_time_offsets, stations)
                 # Remove samples and metadata at indexes of invalid targets
                 for index in sorted(invalid_idx_t, reverse=True):
                     del samples[index]
-                    del metadata[index]
-                yield (samples, metadata), targets
+                    del past_metadata[index]
+                    del future_metadata[index]
+                yield (samples, past_metadata, future_metadata), targets
 
-    metadata_len = 4 + len(target_time_offsets)
+    past_metadata_len = 5  # day, hour, min, daytime, Clearsky
+    future_metadata_len = len(target_time_offsets)
+    timesteps = len(previous_time_offsets)
     target_len = len(target_time_offsets)
     # TODO: Check if that's how prefetch should be used
     data_loader = tf.data.Dataset.from_generator(
-        data_generator, output_types=((tf.float32, tf.float32), tf.float32),
-        output_shapes=(((None, patch_size[0], patch_size[1], 5), (None, metadata_len)), (None, target_len))
+        data_generator, output_types=((tf.float32, tf.float32, tf.float32), tf.float32),
+        output_shapes=(((None, timesteps, patch_size[0], patch_size[1], 5),
+                        (None, timesteps, past_metadata_len),
+                        (None, future_metadata_len)),
+                       (None, target_len))
     ).prefetch(tf.data.experimental.AUTOTUNE)
 
     return data_loader
