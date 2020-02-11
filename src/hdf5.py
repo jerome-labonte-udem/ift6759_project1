@@ -9,6 +9,10 @@ from src.utils.utils import decompress_array
 class HDF5File:
     CHANNELS = ["ch1", "ch2", "ch3", "ch4", "ch6"]
 
+    # Precomputed min/max on 2010-2014 data for all channels
+    MAX_CHANNELS = [3.04, 341.59998, 295.11, 341.18, 321.78]
+    MIN_CHANNELS = [-0.01, 0, 0, 0, 0]
+
     def __init__(self, hdf5_file):
         self._file = hdf5_file
         self._start_idx = self._file.attrs["global_dataframe_start_idx"]
