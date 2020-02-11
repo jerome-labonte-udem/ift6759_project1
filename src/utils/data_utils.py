@@ -4,14 +4,16 @@ utility functions to extract data from pandas dataframe
 import numpy as np
 import pandas as pd
 import os
+from pathlib import Path
 from typing import List, Tuple, Optional
 from _collections import OrderedDict
 import datetime
 import h5py
 import random
+import logging
+import json
 from src.schema import Catalog, Station
 from src.hdf5 import HDF5File
-import logging
 
 
 def get_labels_list_datetime(
@@ -79,12 +81,13 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             metadata_sequence = []
             for offset in past_time_offsets:
                 try:
-                    metadata = []
-                    metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
-                    metadata.append(df.loc[t0 + offset, f"{station}_DAYTIME"])
-                    metadata.append((t0 + offset).dayofyear)
-                    metadata.append((t0 + offset).hour)
-                    metadata.append((t0 + offset).minute)
+                    metadata = [
+                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"],
+                        df.loc[t0 + offset, f"{station}_DAYTIME"],
+                        (t0 + offset).dayofyear,
+                        (t0 + offset).hour,
+                        (t0 + offset).minute
+                    ]
                     metadata_sequence.append(metadata)
                 except KeyError as err:
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
@@ -294,3 +297,40 @@ def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
     photos = df.loc[(df[Catalog.hdf5_8bit_path] == path_day) & (df[Catalog.is_invalid] == 0)]
     random_timestamps = random.choices(photos.index, k=batch_size)
     return random_timestamps
+
+
+def generate_random_timestamps_for_validation(
+        df: pd.DataFrame,
+        n_per_day: int
+):
+    """
+    One time function to generate a validation set of size X
+    :param df: catalog.pkl
+    :param n_per_day: number of timestamps to sample per day of 2015
+    :return:
+    """
+    df = df.loc[df.index.year == 2015]
+    df = df.loc[df[Catalog.is_invalid] == 0]
+    df = df.groupby([Catalog.hdf5_8bit_path])
+    dct = {"target_datetimes": []}
+    for path, df_day in df:
+        indexes = df_day.index.values
+        # Don't append same datetime X times if less indexes than n_per_day
+        n_sample = min(len(indexes), n_per_day)
+        dct["target_datetimes"].extend(
+            [np.datetime_as_string(sample, unit='s') for sample in np.random.choice(indexes, n_sample)]
+        )
+    with open(f'valid_datetimes_{len(dct["target_datetimes"])}.json', 'w') as outfile:
+        json.dump(dct, outfile, indent=2)
+
+
+def main():
+    data_dir = Path(Path(__file__).parent.parent.parent, "data")
+    data_path = Path(data_dir, "catalog.helios.public.20100101-20160101.pkl")
+    # local_dir = os.path.join(data_dir, "hdf5v7_8bit")
+    df = Catalog.add_invalid_t0_column(pd.read_pickle(data_path))
+    generate_random_timestamps_for_validation(df, n_per_day=8)
+
+
+if __name__ == "__main__":
+    main()

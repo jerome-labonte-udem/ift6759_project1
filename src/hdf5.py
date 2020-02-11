@@ -10,8 +10,8 @@ class HDF5File:
     CHANNELS = ["ch1", "ch2", "ch3", "ch4", "ch6"]
 
     # Precomputed min/max on 2010-2014 data for all channels
-    MAX_CHANNELS = [3.04, 341.59998, 295.11, 341.18, 321.78]
-    MIN_CHANNELS = [-0.01, 0, 0, 0, 0]
+    MAX_CHANNELS = np.array([3.04, 341.59998, 295.11, 341.18, 321.78])
+    MIN_CHANNELS = np.array([-0.01, 0, 0, 0, 0])
 
     def __init__(self, hdf5_file):
         self._file = hdf5_file
@@ -44,6 +44,10 @@ class HDF5File:
     def archive_lut_size(self):
         # Typically == 96 (24 * 4) since we have a sample each 15 minutes
         return self.end_idx - self.start_idx
+
+    @staticmethod
+    def min_max_normalization(tensor):
+        return (tensor - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)
 
     def lut_time_stamps(self):
         return [self.start_time + idx * datetime.timedelta(minutes=15) for idx in range(self.archive_lut_size)]
