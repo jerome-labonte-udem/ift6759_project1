@@ -18,3 +18,10 @@ For example, if model name is "RNN", we expect to find a RNN class in the models
 
 * The CNN2D model only takes on image. The previous_time_offsets list in the config file should only
 contain one entry (probably "P0DT0H0M0S" to get image at t0)
+
+## Tensorboard
+After running a model, you can visualize the training/validation curves according to the hyperparameters 
+chosen by running the command
+```bash
+tensorboard --logdir logs/fit
+```
