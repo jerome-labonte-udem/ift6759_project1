@@ -15,7 +15,7 @@ def hdf5_dataloader_list_of_days(
         target_time_offsets: List[datetime.timedelta],
         previous_time_offsets: List[datetime.timedelta],
         batch_size: int,
-        test_time: bool,
+        subset: str,
         stations: Dict = None,
         config: Dict[AnyStr, Any] = None,
         data_directory: Optional[str] = None,
@@ -38,7 +38,7 @@ def hdf5_dataloader_list_of_days(
         batch_size: Samples per batch. -- The real batch_size will be num_stations * batch_size --
         data_directory: (Optional) Provide a data_directory if the directory is not the same as
         the paths from the dataframe
-        test_time: if test_time, return None as target
+        subset: "test", "valid", or "train
         patch_size:
         stations:
         previous_time_offsets: list of timedelta of previous pictures that we want to look at,
@@ -48,13 +48,16 @@ def hdf5_dataloader_list_of_days(
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
         by ``target_sequences``.
     """
+    if subset not in ["train", "valid", "test"]:
+        raise ValueError(f"Invalid subset string provided = {subset}")
+
     if stations is None:
         stations = Station.COORDS
     else:
         stations = {k: Station.COORDS[k] for k in stations.keys()}
 
     def data_generator():
-        if test_time:  # Directly use the provided list of datetimes
+        if subset in ["valid", "test"]:  # Directly use the provided list of datetimes
             for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
                 batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
                 if not batch_of_datetimes:
@@ -70,7 +73,17 @@ def hdf5_dataloader_list_of_days(
                     del batch_of_datetimes[index]
                 past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
                                                               target_time_offsets, stations)
-                targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
+                if subset == "test":
+                    targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
+                else:  # validation
+                    targets, invalid_idx_t = get_labels_list_datetime(
+                        dataframe, batch_of_datetimes, target_time_offsets, stations
+                    )
+                    # Remove samples and metadata at indexes of invalid targets
+                    for index in sorted(invalid_idx_t, reverse=True):
+                        del samples[index]
+                        del past_metadata[index]
+                        del future_metadata[index]
 
                 yield (samples, past_metadata, future_metadata), targets
         else:
@@ -87,8 +100,9 @@ def hdf5_dataloader_list_of_days(
                     continue
                 past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
                                                               target_time_offsets, stations)
-                targets, invalid_idx_t = get_labels_list_datetime(dataframe, batch_of_datetimes,
-                                                                  target_time_offsets, stations)
+                targets, invalid_idx_t = get_labels_list_datetime(
+                    dataframe, batch_of_datetimes, target_time_offsets, stations
+                )
                 # Remove samples and metadata at indexes of invalid targets
                 for index in sorted(invalid_idx_t, reverse=True):
                     del samples[index]

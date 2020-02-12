@@ -25,3 +25,14 @@ chosen by running the command
 ```bash
 tensorboard --logdir logs/fit
 ```
+
+## Visualize predictions
+Once the model is trained, you can run the command
+```bash
+python -m src.evaluator PREDS_FILE VALID_CONFIG_FILE -u PATH_USER_CONFIG
+```
+which will write all predictions to the PREDS_FILE and print the RMSE per station. You can then visualize and compare the predictions
+to the clearsky model and true GHI values (per day), by running:
+```bash
+python -m src.utils.visualization_utils PREDS_FILE PATH_DATAFRAME -t PATH_USER_CONFIG
+```

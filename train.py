@@ -18,6 +18,7 @@ from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
 from src.data_pipeline import hdf5_dataloader_list_of_days
 from src.schema import Catalog
+from src.evaluator import generate_predictions
 
 # Directory to save logs for Tensorboard
 LOG_DIR = os.path.join("logs", "fit")
@@ -51,7 +52,7 @@ def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch
     ]
 
 
-def main(model_path: str, config_path: str, plot_loss: bool) -> None:
+def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: bool) -> None:
     """
     Train a model and save the weights
     :param model_path: path where model weigths will be saved
@@ -61,6 +62,9 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
+    assert os.path.isfile(valid_config_path), f"invalid config file: {valid_config_path}"
+    with open(valid_config_path, "r") as config_file:
+        valid_config = json.load(config_file)
 
     epochs = config["epochs"]
     train_batch_size = config["train_batch_size"]
@@ -94,25 +98,16 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
         start_datetime += datetime.timedelta(days=1)
     train_data = hdf5_dataloader_list_of_days(dataframe, train_datetimes,
                                               target_time_offsets, data_directory=Path(data_path),
-                                              batch_size=train_batch_size, test_time=False,
+                                              batch_size=train_batch_size, subset="train",
                                               patch_size=patch_size, stations=train_stations,
                                               previous_time_offsets=previous_time_offsets)
 
-    val_start_time = config["val_start_bound"]
-    val_start_datetime = datetime.datetime.fromisoformat(val_start_time)
-    val_end_time = config["val_end_bound"]
-    val_end_datetime = datetime.datetime.fromisoformat(val_end_time)
-    val_datetimes = []
-    while val_start_datetime <= val_end_datetime:
-        val_datetimes.append(val_start_datetime)
-        val_start_datetime += datetime.timedelta(days=1)
-
     # TODO always keep the same validation set, only check valid time and only during daytime
-    val_data = hdf5_dataloader_list_of_days(dataframe, val_datetimes,
-                                            target_time_offsets, data_directory=Path(data_path),
-                                            batch_size=val_batch_size, test_time=False,
-                                            patch_size=patch_size, stations=val_stations,
-                                            previous_time_offsets=previous_time_offsets)
+    val_data = hdf5_dataloader_list_of_days(
+        dataframe, valid_config["target_datetimes"], target_time_offsets, data_directory=Path(data_path),
+        batch_size=val_batch_size, subset="valid", patch_size=patch_size, stations=val_stations,
+        previous_time_offsets=previous_time_offsets
+    )
 
     # Here, we assume that the model Class is in a module with the same name and under models
     model_name = config["model_name"]
@@ -142,6 +137,11 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
         )
     )
 
+    preds = generate_predictions(val_data, model, pred_count=len(valid_config["target_datetimes"]))
+    import pdb
+    pdb.set_trace()
+    print(f"preds = {preds}")
+
     model.save_weights(model_path)
 
     # TODO save results in some way, probably will be done with Tensorboard
@@ -161,11 +161,14 @@ if __name__ == "__main__":
                         help="path where the model should be saved")
     parser.add_argument("--cfg_path", type=str,
                         help="path to the JSON config file used to define train parameters")
+    parser.add_argument("--valid_config_path", type=str,
+                        help="path to the JSON config file of the validation target_datetimes")
     parser.add_argument("-p", "--plot", help="plot the training and validation loss",
                         action="store_true")
     args = parser.parse_args()
     main(
         model_path=args.model_path,
         config_path=args.cfg_path,
+        valid_config_path=args.valid_config_path,
         plot_loss=args.plot
     )

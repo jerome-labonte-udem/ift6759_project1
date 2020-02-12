@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import tqdm
-from pathlib import Path
 from src.data_pipeline import hdf5_dataloader_list_of_days
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -66,10 +65,10 @@ def prepare_dataloader(
 
     # MODIFY BELOW
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
-    data_path = Path("../data")
+    # TODO: Change data_directory for test time
     data_loader = hdf5_dataloader_list_of_days(dataframe, target_datetimes,
-                                               target_time_offsets, data_directory=Path(data_path, "hdf5v7_8bit"),
-                                               batch_size=32, stations=stations, test_time=True,
+                                               target_time_offsets, data_directory=config["data_path"],
+                                               batch_size=32, stations=stations, subset="test",
                                                previous_time_offsets=previous_time_offsets)
     # MODIFY ABOVE
 
@@ -95,7 +94,6 @@ def prepare_model(
     Returns:
         A ``tf.keras.Model`` object that can be used to generate new GHI predictions given imagery tensors.
     """
-
     # MODIFY BELOW
     model_name = config["model_name"]
     model_module = importlib.import_module(f".{model_name}", package="models")

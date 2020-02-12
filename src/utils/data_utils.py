@@ -310,6 +310,7 @@ def generate_random_timestamps_for_validation(
     :return:
     """
     df = df.loc[df.index.year == 2015]
+    df = df.loc[df.index.month == 1]
     df = df.loc[df[Catalog.is_invalid] == 0]
     df = df.groupby([Catalog.hdf5_8bit_path])
     dct = {"target_datetimes": []}
@@ -317,9 +318,11 @@ def generate_random_timestamps_for_validation(
         indexes = df_day.index.values
         # Don't append same datetime X times if less indexes than n_per_day
         n_sample = min(len(indexes), n_per_day)
-        dct["target_datetimes"].extend(
-            [np.datetime_as_string(sample, unit='s') for sample in np.random.choice(indexes, n_sample)]
-        )
+        sample = [np.datetime_as_string(sample, unit='s') for sample in np.random.choice(indexes, n_sample)]
+        # make sure no duplicates cuz days can be pointing to yesterday and today
+        for s in sample:
+            if s not in dct["target_datetimes"]:
+                dct["target_datetimes"].append(s)
     with open(f'valid_datetimes_{len(dct["target_datetimes"])}.json', 'w') as outfile:
         json.dump(dct, outfile, indent=2)
 
@@ -329,7 +332,7 @@ def main():
     data_path = Path(data_dir, "catalog.helios.public.20100101-20160101.pkl")
     # local_dir = os.path.join(data_dir, "hdf5v7_8bit")
     df = Catalog.add_invalid_t0_column(pd.read_pickle(data_path))
-    generate_random_timestamps_for_validation(df, n_per_day=28)
+    generate_random_timestamps_for_validation(df, n_per_day=10)
 
 
 if __name__ == "__main__":

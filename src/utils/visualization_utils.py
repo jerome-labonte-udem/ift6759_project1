@@ -4,7 +4,7 @@ import math
 import os
 import typing
 import warnings
-
+import argparse
 import cv2 as cv
 import h5py
 import matplotlib.dates
@@ -18,9 +18,11 @@ from src.schema import Catalog
 
 def get_label_color_mapping(idx):
     """Returns the PASCAL VOC color triplet for a given label index."""
+
     # https://gist.github.com/wllhf/a4533e0adebe57e3ed06d4b50c8419ae
     def bitget(byteval, ch):
         return (byteval & (1 << ch)) != 0
+
     r = g = b = 0
     for j in range(8):
         r = r | (bitget(idx, 0) << 7 - j)
@@ -399,3 +401,19 @@ def visualize_daytime_by_hour(df: pd.DataFrame, stations: typing.List[str]) -> N
         ax.set_ylabel("count")
         ax.set_title(f"Station {station}")
         plt.show()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("preds_path", type=str,
+                        help="path where the raw model predictions are stored")
+    parser.add_argument("dataframe_path", type=str,
+                        help="path to the train catalog.pkl (needs to contain GHI values)")
+    parser.add_argument("-t", "--test_config_path", type=str, default=None,
+                        help="path to the JSON config file used to store test set/evaluation parameters")
+    args = parser.parse_args()
+    viz_predictions(
+        predictions_path=args.preds_path,
+        dataframe_path=args.dataframe_path,
+        test_config_path=args.test_config_path,
+    )
