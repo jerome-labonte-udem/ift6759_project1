@@ -70,21 +70,23 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
     train_batch_size = config["train_batch_size"]
     val_batch_size = config["val_batch_size"]
     patch_size = (config["patch_size"], config["patch_size"])
+
     dataframe_path = config["dataframe_path"]
     assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
-    dataframe = pd.read_pickle(dataframe_path)
-    dataframe = Catalog.add_invalid_t0_column(dataframe)
+
     data_path = config["data_path"]
     assert os.path.isdir(data_path), f"invalid data path: {data_path}"
 
-    # Quick fix to avoid nan, should be handled better
-    # TODO make sure training and validation examples are valid
-    hdf5_paths = dataframe[Catalog.hdf5_8bit_path]
-    dataframe = dataframe.fillna(0)
-    dataframe[Catalog.hdf5_8bit_path] = hdf5_paths
-
     train_stations = config["train_stations"]
     val_stations = config["val_stations"]
+
+    dataframe = pd.read_pickle(dataframe_path)
+    # add invalid attribute to datetime if t0 is invalid
+    dataframe = Catalog.add_invalid_t0_column(dataframe)
+    # Put all GHI values during nightime to 0.0
+    for station in train_stations.keys():
+        dataframe.loc[dataframe[f"{station}_DAYTIME"] == 0, [f"{station}_GHI"]] = 0
+
     target_time_offsets = [pd.Timedelta(d).to_pytimedelta() for d in config["target_time_offsets"]]
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
 
@@ -102,7 +104,6 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
                                               patch_size=patch_size, stations=train_stations,
                                               previous_time_offsets=previous_time_offsets)
 
-    # TODO always keep the same validation set, only check valid time and only during daytime
     val_data = hdf5_dataloader_list_of_days(
         dataframe, valid_config["target_datetimes"], target_time_offsets, data_directory=Path(data_path),
         batch_size=val_batch_size, subset="valid", patch_size=patch_size, stations=val_stations,
@@ -136,11 +137,6 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
             compile_params, model_name, train_batch_size, val_batch_size, patch_size
         )
     )
-
-    preds = generate_predictions(val_data, model, pred_count=len(valid_config["target_datetimes"]))
-    import pdb
-    pdb.set_trace()
-    print(f"preds = {preds}")
 
     model.save_weights(model_path)
 

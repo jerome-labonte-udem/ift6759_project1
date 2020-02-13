@@ -72,6 +72,8 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
     :param stations: dict station
     :return: list of np.array containing past metadata and future metadata for each datetime
     """
+    # This constant was computed once on the 2010-2015 data
+    MAX_CLEARSKY_GHI = 1045.112902
     past_metadatas = []
     future_metadatas = []
     place_holder = 0.0
@@ -82,12 +84,13 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             for offset in past_time_offsets:
                 try:
                     metadata = [
-                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"],
+                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1,
                         df.loc[t0 + offset, f"{station}_DAYTIME"],
-                        (t0 + offset).dayofyear,
-                        (t0 + offset).hour,
-                        (t0 + offset).minute
+                        (t0 + offset).dayofyear / 365 * 2 - 1,
+                        (t0 + offset).hour / 24 * 2 - 1,
+                        (t0 + offset).minute / 60 * 2 - 1
                     ]
+                    # rescale to [-1, 1]
                     metadata_sequence.append(metadata)
                 except KeyError as err:
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
@@ -100,7 +103,7 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             future_metadata = []
             for offset in target_time_offsets:
                 try:
-                    future_metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
+                    future_metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1)
                 except KeyError as err:
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
                     # so these timestamps will be removed from get_labels()

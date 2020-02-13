@@ -66,7 +66,7 @@ class TestDataPipeline(unittest.TestCase):
         for (sample, past_metadata, future_metadata), target in dataset:
             self.assertEqual(len(sample), len(target))
             self.assertEqual(len(past_metadata), len(target))
-            self.assertEquals(len(future_metadata), len(target))
+            self.assertEqual(len(future_metadata), len(target))
 
     def test_visualize_one_sample(self):
         """ Visualize all photos (previous and t0) of a sample"""
