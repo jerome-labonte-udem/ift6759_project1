@@ -129,18 +129,20 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
     compile_params = config["compile_params"]
     model.compile(**compile_params)
 
+    # Stops training when validation accuracy does not go down for "patience" epochs.
+    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min',
+                                                      patience=10, verbose=1)
+    # Saves only best model for now, could be used to saved every n epochs
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_path, monitor='val_loss', mode='min',
+                                                          verbose=1, save_best_only=True, save_weights_only=True)
     history = model.fit(
         train_data,
         epochs=epochs,
         validation_data=val_data,
         callbacks=get_callbacks_tensorboard(
             compile_params, model_name, train_batch_size, val_batch_size, patch_size
-        )
+        ).extend([early_stopping, model_checkpoint])
     )
-
-    model.save_weights(model_path)
-
-    # TODO save results in some way, probably will be done with Tensorboard
 
     if plot_loss:
         plt.plot(range(1, epochs + 1), history.history['loss'], label='train_loss')
