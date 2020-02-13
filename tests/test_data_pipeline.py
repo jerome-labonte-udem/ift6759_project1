@@ -32,7 +32,7 @@ class TestDataPipeline(unittest.TestCase):
         list_days = [self.datetime_hdf5_first, self.datetime_hdf5_middle_2, self.datetime_hdf5_last]
         dataset = hdf5_dataloader_list_of_days(
             self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir,
-            patch_size=(32, 32), batch_size=8, test_time=False, previous_time_offsets=self.previous_time_offsets
+            patch_size=(32, 32), batch_size=8, subset="train", previous_time_offsets=self.previous_time_offsets
         )
 
         for (sample, past_metadata, future_metadata), target in dataset:
@@ -60,7 +60,7 @@ class TestDataPipeline(unittest.TestCase):
 
         dataset = hdf5_dataloader_list_of_days(
             self.df, list_datetimes, get_target_time_offsets(), data_directory=self.hdf8_dir,
-            batch_size=len(list_datetimes), test_time=True, previous_time_offsets=self.previous_time_offsets,
+            batch_size=len(list_datetimes), subset="test", previous_time_offsets=self.previous_time_offsets,
             stations=Station.COORDS
         )
         for (sample, past_metadata, future_metadata), target in dataset:
@@ -79,7 +79,7 @@ class TestDataPipeline(unittest.TestCase):
         ]
         dataset = hdf5_dataloader_list_of_days(
             self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir, patch_size=(256, 256),
-            batch_size=8, test_time=False, stations={Station.GWN: Station.COORDS[Station.GWN]},
+            batch_size=8, subset="train", stations={Station.GWN: Station.COORDS[Station.GWN]},
             previous_time_offsets=[datetime.timedelta(hours=h, minutes=m) for h, m in hours_min[:-1]]
         )
 

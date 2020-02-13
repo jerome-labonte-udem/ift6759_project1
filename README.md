@@ -18,3 +18,21 @@ For example, if model name is "RNN", we expect to find a RNN class in the models
 
 * The CNN2D model only takes on image. The previous_time_offsets list in the config file should only
 contain one entry (probably "P0DT0H0M0S" to get image at t0)
+
+## Tensorboard
+After running a model, you can visualize the training/validation curves according to the hyperparameters 
+chosen by running the command
+```bash
+tensorboard --logdir logs/fit
+```
+
+## Visualize predictions
+Once the model is trained, you can run the command
+```bash
+python -m src.evaluator PREDS_FILE VALID_CONFIG_FILE -u PATH_USER_CONFIG
+```
+which will write all predictions to the PREDS_FILE and print the RMSE per station. You can then visualize and compare the predictions
+to the clearsky model and true GHI values (per day), by running:
+```bash
+python -m src.utils.visualization_utils PREDS_FILE PATH_DATAFRAME -t PATH_USER_CONFIG
+```

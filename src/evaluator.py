@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import tqdm
-from pathlib import Path
 from src.data_pipeline import hdf5_dataloader_list_of_days
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -66,10 +65,10 @@ def prepare_dataloader(
 
     # MODIFY BELOW
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
-    data_path = Path("../data")
+    # TODO: Change data_directory for test time
     data_loader = hdf5_dataloader_list_of_days(dataframe, target_datetimes,
-                                               target_time_offsets, data_directory=Path(data_path, "hdf5v7_8bit"),
-                                               batch_size=32, stations=stations, test_time=True,
+                                               target_time_offsets, data_directory=config["data_path"],
+                                               batch_size=32, stations=stations, subset="test",
                                                previous_time_offsets=previous_time_offsets)
     # MODIFY ABOVE
 
@@ -95,7 +94,6 @@ def prepare_model(
     Returns:
         A ``tf.keras.Model`` object that can be used to generate new GHI predictions given imagery tensors.
     """
-
     # MODIFY BELOW
     model_name = config["model_name"]
     model_module = importlib.import_module(f".{model_name}", package="models")
@@ -145,7 +143,9 @@ def generate_all_predictions(
         data_loader = prepare_dataloader(dataframe, target_datetimes, stations, target_time_offsets, user_config)
         model = prepare_model(stations, target_time_offsets, user_config)
         station_preds = generate_predictions(data_loader, model, pred_count=len(target_datetimes))
-        assert len(station_preds) == len(target_datetimes), "number of predictions mismatch with requested datetimes"
+        if len(station_preds) != len(target_datetimes):
+            raise ValueError(f"number of predictions ({len(station_preds)}) "
+                             f"mismatch with requested datetimes ({len(target_datetimes)})")
         predictions.append(station_preds)
     return np.concatenate(predictions, axis=0)
 

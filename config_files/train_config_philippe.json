@@ -1,14 +1,13 @@
 {
   "dataframe_path": "./data/catalog.helios.public.20100101-20160101.pkl",
   "data_path": "./data/hdf5v7_8bit",
-  "epochs": 3,
+  "epochs": 10,
   "train_batch_size": 32,
-  "val_batch_size": 32,
-  "start_bound": "2012-01-03T08:00:00",
-  "end_bound": "2012-01-07T08:00:00",
-  "val_start_bound": "2012-01-08T08:00:00",
-  "val_end_bound": "2012-01-09T08:00:00",
+  "val_batch_size": 64,
+  "start_bound": "2012-01-01T08:00:00",
+  "end_bound": "2012-01-31T08:00:00",
   "model_name": "CNN2D",
+  "saved_weights_path": "tests/saved_models/cnn_2d_10_epochs/",
   "patch_size": 32,
   "compile_params":{"loss":"mse", "optimizer":"adam"},
   "train_stations": {
@@ -34,5 +33,8 @@
     "P0DT1H0M0S",
     "P0DT3H0M0S",
     "P0DT6H0M0S"
+  ],
+    "previous_time_offsets": [
+    "P0DT0H0M0S"
   ]
 }

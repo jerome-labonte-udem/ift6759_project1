@@ -4,14 +4,16 @@ utility functions to extract data from pandas dataframe
 import numpy as np
 import pandas as pd
 import os
-from typing import List, Tuple, Optional
+from pathlib import Path
+from typing import Set, List, Tuple, Optional
 from _collections import OrderedDict
 import datetime
 import h5py
 import random
+import logging
+import json
 from src.schema import Catalog, Station
 from src.hdf5 import HDF5File
-import logging
 
 
 def get_labels_list_datetime(
@@ -19,7 +21,7 @@ def get_labels_list_datetime(
         target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],
         stations: OrderedDict
-) -> Tuple[np.array, List[int]]:
+) -> Tuple[List[List], Set[int]]:
     """
     This function take the same input that we will receive at test time.
     (see function prepare_dataloader in evaluator.py)
@@ -31,31 +33,28 @@ def get_labels_list_datetime(
                   list of indexes of invalid time_stamps]
     """
     labels = []
-    invalid_indexes = []
+    invalid_indexes = set()
+    default_ghi = 0
     for i, begin in enumerate(target_datetimes):
         t0 = pd.Timestamp(begin)
         # If one GHI (out of 4) of the time stamp + offsets is invalid -> we remove that sample
         for j, station in enumerate(stations.keys()):
             list_ghi = []
-            invalid = False
             for offset in target_time_offsets:
                 try:
                     ghi = df.loc[t0 + offset, Catalog.ghi(station)]
                     if np.isnan(ghi):
-                        invalid_indexes.append(i * len(stations) + j)
-                        invalid = True
-                        break
+                        invalid_indexes.add(i * len(stations) + j)
+                        list_ghi.append(default_ghi)
                     else:
                         list_ghi.append(ghi)
                 except KeyError as err:
                     # Probably trying to look in 2016 but we don't have access to these GHI values
                     logging.debug(f"KeyError: {err}")
-                    invalid_indexes.append(i * len(stations) + j)
-                    invalid = True
-                    break
-            if not invalid:
-                labels.append(list_ghi)
-    return np.array(labels), invalid_indexes
+                    invalid_indexes.add(i * len(stations) + j)
+                    list_ghi.append(default_ghi)
+            labels.append(list_ghi)
+    return labels, invalid_indexes
 
 
 def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
@@ -81,13 +80,14 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             metadata_sequence = []
             for offset in past_time_offsets:
                 try:
-                    metadata = []
+                    metadata = [
+                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1,
+                        df.loc[t0 + offset, f"{station}_DAYTIME"],
+                        (t0 + offset).dayofyear / 365 * 2 - 1,
+                        (t0 + offset).hour / 24 * 2 - 1,
+                        (t0 + offset).minute / 60 * 2 - 1
+                    ]
                     # rescale to [-1, 1]
-                    metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1)
-                    metadata.append(df.loc[t0 + offset, f"{station}_DAYTIME"])
-                    metadata.append((t0 + offset).dayofyear / 365 * 2 - 1)
-                    metadata.append((t0 + offset).hour / 24 * 2 - 1)
-                    metadata.append((t0 + offset).minute / 60 * 2 - 1)
                     metadata_sequence.append(metadata)
                 except KeyError as err:
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
@@ -297,3 +297,47 @@ def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
     photos = df.loc[(df[Catalog.hdf5_8bit_path] == path_day) & (df[Catalog.is_invalid] == 0)]
     random_timestamps = random.choices(photos.index, k=batch_size)
     return random_timestamps
+
+
+def generate_random_timestamps_for_validation(
+        df: pd.DataFrame,
+        n_per_day: int,
+        sampling: bool
+):
+    """
+    One time function to generate a validation set of size X
+    :param df: catalog.pkl
+    :param n_per_day: number of timestamps to sample per day of 2015
+    :return:
+    """
+    df = df.loc[df.index.year == 2015]
+    df = df.loc[df.index.month == 1]
+    df = df.loc[df[Catalog.is_invalid] == 0]
+    df = df.groupby([Catalog.hdf5_8bit_path])
+    dct = {"target_datetimes": []}
+    for path, df_day in df:
+        indexes = df_day.index.values
+        if sampling:
+            # Don't append same datetime X times if less indexes than n_per_day
+            n_sample = min(len(indexes), n_per_day)
+            samples = [np.datetime_as_string(sample, unit='s') for sample in np.random.choice(indexes, n_sample)]
+        else:
+            samples = [np.datetime_as_string(sample, unit='s') for sample in indexes]
+        # make sure no duplicates cuz days can be pointing to yesterday and today
+        for sample in samples:
+            if sample not in dct["target_datetimes"]:
+                dct["target_datetimes"].append(sample)
+    with open(f'valid_datetimes_{len(dct["target_datetimes"])}.json', 'w') as outfile:
+        json.dump(dct, outfile, indent=2)
+
+
+def main():
+    data_dir = Path(Path(__file__).parent.parent.parent, "data")
+    data_path = Path(data_dir, "catalog.helios.public.20100101-20160101.pkl")
+    # local_dir = os.path.join(data_dir, "hdf5v7_8bit")
+    df = Catalog.add_invalid_t0_column(pd.read_pickle(data_path))
+    generate_random_timestamps_for_validation(df, n_per_day=40, sampling=False)
+
+
+if __name__ == "__main__":
+    main()
