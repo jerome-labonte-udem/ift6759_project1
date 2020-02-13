@@ -83,8 +83,6 @@ def main(model_path: str, config_path: str, plot_loss: bool) -> None:
     for station in train_stations.keys():
         dataframe.loc[dataframe[f"{station}_DAYTIME"] == 0, [f"{station}_GHI"]] = 0
 
-
-
     target_time_offsets = [pd.Timedelta(d).to_pytimedelta() for d in config["target_time_offsets"]]
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
 
