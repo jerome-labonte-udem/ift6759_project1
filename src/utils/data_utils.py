@@ -301,7 +301,8 @@ def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
 
 def generate_random_timestamps_for_validation(
         df: pd.DataFrame,
-        n_per_day: int
+        n_per_day: int,
+        sampling: bool
 ):
     """
     One time function to generate a validation set of size X
@@ -316,13 +317,16 @@ def generate_random_timestamps_for_validation(
     dct = {"target_datetimes": []}
     for path, df_day in df:
         indexes = df_day.index.values
-        # Don't append same datetime X times if less indexes than n_per_day
-        n_sample = min(len(indexes), n_per_day)
-        sample = [np.datetime_as_string(sample, unit='s') for sample in np.random.choice(indexes, n_sample)]
+        if sampling:
+            # Don't append same datetime X times if less indexes than n_per_day
+            n_sample = min(len(indexes), n_per_day)
+            samples = [np.datetime_as_string(sample, unit='s') for sample in np.random.choice(indexes, n_sample)]
+        else:
+            samples = [np.datetime_as_string(sample, unit='s') for sample in indexes]
         # make sure no duplicates cuz days can be pointing to yesterday and today
-        for s in sample:
-            if s not in dct["target_datetimes"]:
-                dct["target_datetimes"].append(s)
+        for sample in samples:
+            if sample not in dct["target_datetimes"]:
+                dct["target_datetimes"].append(sample)
     with open(f'valid_datetimes_{len(dct["target_datetimes"])}.json', 'w') as outfile:
         json.dump(dct, outfile, indent=2)
 
@@ -332,7 +336,7 @@ def main():
     data_path = Path(data_dir, "catalog.helios.public.20100101-20160101.pkl")
     # local_dir = os.path.join(data_dir, "hdf5v7_8bit")
     df = Catalog.add_invalid_t0_column(pd.read_pickle(data_path))
-    generate_random_timestamps_for_validation(df, n_per_day=10)
+    generate_random_timestamps_for_validation(df, n_per_day=40, sampling=False)
 
 
 if __name__ == "__main__":

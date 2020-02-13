@@ -375,9 +375,9 @@ def viz_predictions(
         ret = cv.waitKey(100)
         if ret == ord('q') or ret == 27:  # q or ESC
             break
-        elif ret == 81 or ret == 84:  # UNIX: left or down arrow
+        elif ret == 81 or ret == 84 or ret == ord('b'):  # UNIX: left or down arrow
             day_idx = max(day_idx - 1, 0)
-        elif ret == 82 or ret == 83:  # UNIX: right or up arrow
+        elif ret == 82 or ret == 83 or ret == ord('n'):  # UNIX: right or up arrow
             day_idx = min(day_idx + 1, len(displays) - 1)
 
 

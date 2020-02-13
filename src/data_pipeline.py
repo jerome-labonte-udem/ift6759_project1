@@ -58,6 +58,7 @@ def hdf5_dataloader_list_of_days(
 
     def data_generator():
         if subset in ["valid", "test"]:  # Directly use the provided list of datetimes
+            # We can't delete any img/target at valid/test time since they have to be in order for evaluator.py
             for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
                 batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
                 if not batch_of_datetimes:
@@ -66,11 +67,7 @@ def hdf5_dataloader_list_of_days(
                 samples, invalids_i = get_hdf5_samples_list_datetime(
                     dataframe, batch_of_datetimes, previous_time_offsets, patch_size, data_directory, stations,
                 )
-                # Remove invalid indexes so that len(targets) == len(samples)
-                # Delete them in reverse order so that you don't throw off the subsequent indexes.
-                # https://stackoverflow.com/questions/11303225/how-to-remove-multiple-indexes-from-a-list-at-the-same-time/41079803
-                for index in sorted(invalids_i, reverse=True):
-                    del batch_of_datetimes[index]
+
                 past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
                                                               target_time_offsets, stations)
                 if subset == "test":
@@ -79,11 +76,6 @@ def hdf5_dataloader_list_of_days(
                     targets, invalid_idx_t = get_labels_list_datetime(
                         dataframe, batch_of_datetimes, target_time_offsets, stations
                     )
-                    # Remove samples and metadata at indexes of invalid targets
-                    for index in sorted(invalid_idx_t, reverse=True):
-                        del samples[index]
-                        del past_metadata[index]
-                        del future_metadata[index]
 
                 yield (samples, past_metadata, future_metadata), targets
         else:

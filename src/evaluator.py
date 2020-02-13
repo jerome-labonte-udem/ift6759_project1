@@ -143,7 +143,9 @@ def generate_all_predictions(
         data_loader = prepare_dataloader(dataframe, target_datetimes, stations, target_time_offsets, user_config)
         model = prepare_model(stations, target_time_offsets, user_config)
         station_preds = generate_predictions(data_loader, model, pred_count=len(target_datetimes))
-        assert len(station_preds) == len(target_datetimes), "number of predictions mismatch with requested datetimes"
+        if len(station_preds) != len(target_datetimes):
+            raise ValueError(f"number of predictions ({len(station_preds)}) "
+                             f"mismatch with requested datetimes ({len(target_datetimes)})")
         predictions.append(station_preds)
     return np.concatenate(predictions, axis=0)
 

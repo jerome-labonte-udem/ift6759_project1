@@ -4,14 +4,15 @@ from typing import List, Any, Dict, Tuple
 import collections
 import pandas as pd
 from src.utils.utils import decompress_array
+from src.schema import Catalog
 
 
 class HDF5File:
     CHANNELS = ["ch1", "ch2", "ch3", "ch4", "ch6"]
 
     # Precomputed min/max on 2010-2014 data for all channels
-    MAX_CHANNELS = np.array([3.04, 341.59998, 295.11, 341.18, 321.78])
-    MIN_CHANNELS = np.array([-0.01, 0, 0, 0, 0])
+    MAX_CHANNELS = np.array([3.04, 341.59998, 295.11, 341.18, 321.78]).reshape((5, 1, 1))
+    MIN_CHANNELS = np.array([-0.01, 0, 0, 0, 0]).reshape((5, 1, 1))
 
     def __init__(self, hdf5_file):
         self._file = hdf5_file
@@ -46,8 +47,14 @@ class HDF5File:
         return self.end_idx - self.start_idx
 
     @staticmethod
-    def min_max_normalization(tensor):
-        return (tensor - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)
+    def min_max_normalization_0_1(array: np.array):
+        # Min-max normalisation in the [0, 1] range
+        return (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)
+
+    @staticmethod
+    def min_max_normalization_min1_1(array: np.array):
+        # Min-max normalisation in the [-1, 1] range
+        return (2 * (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)) - 1
 
     def lut_time_stamps(self):
         return [self.start_time + idx * datetime.timedelta(minutes=15) for idx in range(self.archive_lut_size)]
@@ -138,13 +145,19 @@ class HDF5File:
         if patch_size[0] % 2 != 0:
             raise NotImplementedError("Handling of odds patches is not implemented")
 
-        channel_data = [self.fetch_sample(channel_name, sample_idx) for channel_name in self.CHANNELS]
+        channel_data = []
+        for channel_name in self.CHANNELS:
+            data = self.fetch_sample(channel_name, sample_idx)
+            # Even if a channel is missing or is NaN, return an array of zeros to always predict
+            # something at validation/test time
+            if data is None or np.isnan(data).any():
+                channel_data.append(np.zeros(Catalog.size_image))
+            else:
+                channel_data.append(data)
+
         channel_data = np.asarray(channel_data)  # transform to np.array for multidimensional slicing
-        # TODO: Maybe check if data can also be invalid (e.g. NaN values) ?
-        for data in channel_data:
-            if data is None:
-                # One channel or more is None --> skip image
-                return []
+        channel_data = self.min_max_normalization_min1_1(channel_data)
+
         patches = []
         # Stations_coords is OrderedDict so won't mess up the order
         for coords in stations_coords.values():
