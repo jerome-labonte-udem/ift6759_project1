@@ -311,7 +311,6 @@ def generate_random_timestamps_for_validation(
     :return:
     """
     df = df.loc[df.index.year == 2015]
-    df = df.loc[df.index.month == 1]
     df = df.loc[df[Catalog.is_invalid] == 0]
     df = df.groupby([Catalog.hdf5_8bit_path])
     dct = {"target_datetimes": []}
