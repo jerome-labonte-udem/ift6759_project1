@@ -18,7 +18,6 @@ from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
 from src.data_pipeline import hdf5_dataloader_list_of_days
 from src.schema import Catalog
-from src.evaluator import generate_predictions
 
 # Directory to save logs for Tensorboard
 LOG_DIR = os.path.join("logs", "fit")
@@ -55,6 +54,7 @@ def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch
 def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: bool) -> None:
     """
     Train a model and save the weights
+    :param valid_config_path: path to config file that contains target_datetimes
     :param model_path: path where model weigths will be saved
     :param config_path: path to json config file
     :param plot_loss: plot losses at end of training if True
@@ -62,7 +62,7 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
-    assert os.path.isfile(valid_config_path), f"invalid config file: {valid_config_path}"
+    assert os.path.isfile(valid_config_path), f"invalid valid config file: {valid_config_path}"
     with open(valid_config_path, "r") as config_file:
         valid_config = json.load(config_file)
 

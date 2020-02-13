@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import os
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Set, List, Tuple, Optional
 from _collections import OrderedDict
 import datetime
 import h5py
@@ -21,7 +21,7 @@ def get_labels_list_datetime(
         target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],
         stations: OrderedDict
-) -> Tuple[np.array, List[int]]:
+) -> Tuple[List[List], Set[int]]:
     """
     This function take the same input that we will receive at test time.
     (see function prepare_dataloader in evaluator.py)
@@ -33,31 +33,28 @@ def get_labels_list_datetime(
                   list of indexes of invalid time_stamps]
     """
     labels = []
-    invalid_indexes = []
+    invalid_indexes = set()
+    default_ghi = 0
     for i, begin in enumerate(target_datetimes):
         t0 = pd.Timestamp(begin)
         # If one GHI (out of 4) of the time stamp + offsets is invalid -> we remove that sample
         for j, station in enumerate(stations.keys()):
             list_ghi = []
-            invalid = False
             for offset in target_time_offsets:
                 try:
                     ghi = df.loc[t0 + offset, Catalog.ghi(station)]
                     if np.isnan(ghi):
-                        invalid_indexes.append(i * len(stations) + j)
-                        invalid = True
-                        break
+                        invalid_indexes.add(i * len(stations) + j)
+                        list_ghi.append(default_ghi)
                     else:
                         list_ghi.append(ghi)
                 except KeyError as err:
                     # Probably trying to look in 2016 but we don't have access to these GHI values
                     logging.debug(f"KeyError: {err}")
-                    invalid_indexes.append(i * len(stations) + j)
-                    invalid = True
-                    break
-            if not invalid:
-                labels.append(list_ghi)
-    return np.array(labels), invalid_indexes
+                    invalid_indexes.add(i * len(stations) + j)
+                    list_ghi.append(default_ghi)
+            labels.append(list_ghi)
+    return labels, invalid_indexes
 
 
 def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],

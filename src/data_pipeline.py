@@ -64,7 +64,7 @@ def hdf5_dataloader_list_of_days(
                 if not batch_of_datetimes:
                     continue
 
-                samples, invalids_i = get_hdf5_samples_list_datetime(
+                samples, _ = get_hdf5_samples_list_datetime(
                     dataframe, batch_of_datetimes, previous_time_offsets, patch_size, data_directory, stations,
                 )
 
@@ -73,10 +73,9 @@ def hdf5_dataloader_list_of_days(
                 if subset == "test":
                     targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
                 else:  # validation
-                    targets, invalid_idx_t = get_labels_list_datetime(
+                    targets, _ = get_labels_list_datetime(
                         dataframe, batch_of_datetimes, target_time_offsets, stations
                     )
-
                 yield (samples, past_metadata, future_metadata), targets
         else:
             for i in range(0, len(target_datetimes)):
@@ -97,6 +96,7 @@ def hdf5_dataloader_list_of_days(
                 )
                 # Remove samples and metadata at indexes of invalid targets
                 for index in sorted(invalid_idx_t, reverse=True):
+                    del targets[index]
                     del samples[index]
                     del past_metadata[index]
                     del future_metadata[index]
