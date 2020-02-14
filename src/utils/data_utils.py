@@ -70,7 +70,7 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
     :return: list of np.array containing past metadata and future metadata for each datetime
     """
     # This constant was computed once on the 2010-2015 data
-    MAX_CLEARSKY_GHI = 1045.112902
+    # MAX_CLEARSKY_GHI = 1045.112902
     past_metadatas = []
     future_metadatas = []
     place_holder = 0.0
@@ -81,7 +81,7 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             for offset in past_time_offsets:
                 try:
                     metadata = [
-                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1,
+                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"],
                         df.loc[t0 + offset, f"{station}_DAYTIME"],
                         (t0 + offset).dayofyear / 365 * 2 - 1,
                         (t0 + offset).hour / 24 * 2 - 1,
@@ -100,7 +100,7 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             future_metadata = []
             for offset in target_time_offsets:
                 try:
-                    future_metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1)
+                    future_metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
                 except KeyError as err:
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
                     # so these timestamps will be removed from get_labels()
@@ -333,9 +333,8 @@ def generate_random_timestamps_for_validation(
 def main():
     data_dir = Path(Path(__file__).parent.parent.parent, "data")
     data_path = Path(data_dir, "catalog.helios.public.20100101-20160101.pkl")
-    # local_dir = os.path.join(data_dir, "hdf5v7_8bit")
     df = Catalog.add_invalid_t0_column(pd.read_pickle(data_path))
-    generate_random_timestamps_for_validation(df, n_per_day=40, sampling=False)
+    generate_random_timestamps_for_validation(df, n_per_day=4, sampling=True)
 
 
 if __name__ == "__main__":
