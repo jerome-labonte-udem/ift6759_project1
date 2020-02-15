@@ -114,7 +114,6 @@ def hdf5_dataloader_list_of_days(
                         (None, future_metadata_len)),
                        (None, target_len))
     ).prefetch(tf.data.experimental.AUTOTUNE)
-
     return data_loader
 
 
