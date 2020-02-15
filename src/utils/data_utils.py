@@ -353,9 +353,8 @@ def generate_random_timestamps_for_validation(
 def main():
     data_dir = Path(Path(__file__).parent.parent.parent, "data")
     data_path = Path(data_dir, "catalog.helios.public.20100101-20160101.pkl")
-    # local_dir = os.path.join(data_dir, "hdf5v7_8bit")
     df = Catalog.add_invalid_t0_column(pd.read_pickle(data_path))
-    generate_random_timestamps_for_validation(df, n_per_day=40, sampling=False)
+    generate_random_timestamps_for_validation(df, n_per_day=4, sampling=True)
 
 
 if __name__ == "__main__":
