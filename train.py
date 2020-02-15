@@ -16,7 +16,7 @@ import tensorflow as tf
 from tensorboard.plugins.hparams import api as hp
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
-from src.data_pipeline import hdf5_dataloader_list_of_days
+from src.extract_tf_record import tfrecord_dataloader
 from src.schema import Catalog
 
 # Directory to save logs for Tensorboard
@@ -51,10 +51,10 @@ def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch
     ]
 
 
-def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: bool) -> None:
+def main(model_path: str, config_path: str, cfg_data_path: str, plot_loss: bool) -> None:
     """
     Train a model and save the weights
-    :param valid_config_path: path to config file that contains target_datetimes
+    :param cfg_data_path:
     :param model_path: path where model weigths will be saved
     :param config_path: path to json config file
     :param plot_loss: plot losses at end of training if True
@@ -62,9 +62,10 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
-    assert os.path.isfile(valid_config_path), f"invalid valid config file: {valid_config_path}"
-    with open(valid_config_path, "r") as config_file:
-        valid_config = json.load(config_file)
+
+    assert os.path.isfile(cfg_data_path), f"invalid cfg_data_path: {cfg_data_path}"
+    with open(cfg_data_path, "r") as config_file:
+        data_config = json.load(config_file)
 
     epochs = config["epochs"]
     train_batch_size = config["train_batch_size"]
@@ -74,11 +75,10 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
     dataframe_path = config["dataframe_path"]
     assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
 
-    data_path = config["data_path"]
-    assert os.path.isdir(data_path), f"invalid data path: {data_path}"
+    tf_records_path = data_config["save_path"]
+    assert os.path.isdir(tf_records_path), f"invalid directory: tf_records_path: {tf_records_path}"
 
     train_stations = config["train_stations"]
-    val_stations = config["val_stations"]
 
     dataframe = pd.read_pickle(dataframe_path)
     # add invalid attribute to datetime if t0 is invalid
@@ -98,20 +98,15 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
     while start_datetime <= end_datetime:
         train_datetimes.append(start_datetime)
         start_datetime += datetime.timedelta(days=1)
-    train_data = hdf5_dataloader_list_of_days(dataframe, train_datetimes,
-                                              target_time_offsets, data_directory=Path(data_path),
-                                              batch_size=train_batch_size, subset="train",
-                                              patch_size=patch_size, stations=train_stations,
-                                              previous_time_offsets=previous_time_offsets)
 
-    val_data = hdf5_dataloader_list_of_days(
-        dataframe, valid_config["target_datetimes"], target_time_offsets, data_directory=Path(data_path),
-        batch_size=val_batch_size, subset="valid", patch_size=patch_size, stations=val_stations,
-        previous_time_offsets=previous_time_offsets
-    )
+    model_name = config["model_name"]
+
+    is_cnn = model_name == "CNN2D"
+    train_data = tfrecord_dataloader(Path(tf_records_path, "train"), is_cnn, patch_size[0])
+    val_data = tfrecord_dataloader(Path(tf_records_path, "validation"), is_cnn, patch_size[0])
 
     # Here, we assume that the model Class is in a module with the same name and under models
-    model_name = config["model_name"]
+
     model_module = importlib.import_module(f".{model_name}", package="models")
     timesteps = len(previous_time_offsets)
     target_len = len(target_time_offsets)
@@ -136,9 +131,9 @@ def main(model_path: str, config_path: str, valid_config_path: str, plot_loss: b
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_path, monitor='val_loss', mode='min',
                                                           verbose=1, save_best_only=True, save_weights_only=True)
     history = model.fit(
-        train_data,
+        train_data.batch(batch_size=train_batch_size),
         epochs=epochs,
-        validation_data=val_data,
+        validation_data=val_data.batch(batch_size=val_batch_size),
         callbacks=get_callbacks_tensorboard(
             compile_params, model_name, train_batch_size, val_batch_size, patch_size
         ).extend([early_stopping, model_checkpoint])
@@ -159,14 +154,14 @@ if __name__ == "__main__":
                         help="path where the model should be saved")
     parser.add_argument("--cfg_path", type=str,
                         help="path to the JSON config file used to define train parameters")
-    parser.add_argument("--valid_config_path", type=str,
-                        help="path to the JSON config file of the validation target_datetimes")
+    parser.add_argument("--cfg_data_path", type=str,
+                        help="path to the JSON config file of data config tfrecord")
     parser.add_argument("-p", "--plot", help="plot the training and validation loss",
                         action="store_true")
     args = parser.parse_args()
     main(
         model_path=args.model_path,
         config_path=args.cfg_path,
-        valid_config_path=args.valid_config_path,
+        cfg_data_path=args.cfg_data_path,
         plot_loss=args.plot
     )

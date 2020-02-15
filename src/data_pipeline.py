@@ -59,12 +59,12 @@ def hdf5_dataloader_list_of_days(
     def data_generator():
         if subset in ["valid", "test"]:  # Directly use the provided list of datetimes
             # We can't delete any img/target at valid/test time since they have to be in order for evaluator.py
-            for batch_idx in range(0, len(target_datetimes)//batch_size + 1):
+            for batch_idx in range(0, len(target_datetimes) // batch_size + 1):
                 batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
                 if not batch_of_datetimes:
                     continue
 
-                samples, _ = get_hdf5_samples_list_datetime(
+                samples, _, _, _ = get_hdf5_samples_list_datetime(
                     dataframe, batch_of_datetimes, previous_time_offsets, patch_size, data_directory, stations,
                 )
 
@@ -82,7 +82,7 @@ def hdf5_dataloader_list_of_days(
                 # Generate randomly batch_size timestamps from that given day
                 batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
                 samples, invalids_i = get_hdf5_samples_from_day(
-                    dataframe, batch_of_datetimes, previous_time_offsets,  patch_size, data_directory, stations,
+                    dataframe, batch_of_datetimes, previous_time_offsets, patch_size, data_directory, stations,
                 )
                 for index in sorted(invalids_i, reverse=True):
                     del batch_of_datetimes[index]
@@ -112,6 +112,64 @@ def hdf5_dataloader_list_of_days(
         output_shapes=(((None, timesteps, patch_size[0], patch_size[1], 5),
                         (None, timesteps, past_metadata_len),
                         (None, future_metadata_len)),
+                       (None, target_len))
+    ).prefetch(tf.data.experimental.AUTOTUNE)
+
+    return data_loader
+
+
+def tfrecord_dataloader(
+        dataframe: pd.DataFrame,
+        target_datetimes: List[datetime.datetime],
+        target_time_offsets: List[datetime.timedelta],
+        previous_time_offsets: List[datetime.timedelta],
+        batch_size: int,
+        data_directory: Optional[str] = None,
+        patch_size: Tuple[int, int] = (32, 32),
+) -> tf.data.Dataset:
+
+    stations = Station.COORDS
+
+    def data_generator():
+        for batch_idx in range(0, len(target_datetimes) // batch_size + 1):
+            batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
+            if not batch_of_datetimes:
+                continue
+
+            samples, invalids_i, min_idx, max_idx = get_hdf5_samples_list_datetime(
+                dataframe, batch_of_datetimes, previous_time_offsets, patch_size, data_directory, stations,
+            )
+
+            for index in sorted(invalids_i, reverse=True):
+                del batch_of_datetimes[index]
+
+            past_metadata, future_metadata = get_metadata(
+                dataframe, batch_of_datetimes, previous_time_offsets, target_time_offsets, stations
+            )
+            targets, invalid_idx_t = get_labels_list_datetime(
+                dataframe, batch_of_datetimes, target_time_offsets, stations
+            )
+
+            # Remove samples and metadata at indexes of invalid targets
+            for index in sorted(invalid_idx_t, reverse=True):
+                del targets[index]
+                del samples[index]
+                del past_metadata[index]
+                del future_metadata[index]
+
+            yield (samples, past_metadata, future_metadata, min_idx, max_idx), targets
+
+    past_metadata_len = 5  # day, hour, min, daytime, Clearsky
+    future_metadata_len = len(target_time_offsets)
+    timesteps = len(previous_time_offsets)
+    target_len = len(target_time_offsets)
+    data_loader = tf.data.Dataset.from_generator(
+        data_generator, output_types=((tf.float32, tf.float32, tf.float32, tf.float32, tf.float32), tf.float32),
+        output_shapes=(((None, timesteps, patch_size[0], patch_size[1], 5),
+                        (None, timesteps, past_metadata_len),
+                        (None, future_metadata_len),
+                        (None, timesteps, 1, 1, 5),
+                        (None, timesteps, 1, 1, 5)),
                        (None, target_len))
     ).prefetch(tf.data.experimental.AUTOTUNE)
 

@@ -70,10 +70,11 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
     :return: list of np.array containing past metadata and future metadata for each datetime
     """
     # This constant was computed once on the 2010-2015 data
-    MAX_CLEARSKY_GHI = 1045.112902
+    # MAX_CLEARSKY_GHI = 1045.112902
     past_metadatas = []
     future_metadatas = []
-    place_holder = 0.0
+    place_holder_past = [0.] * 5
+    place_holder_future = 0
     for begin in target_datetimes:
         t0 = pd.Timestamp(begin)
         for station in stations.keys():
@@ -81,7 +82,7 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
             for offset in past_time_offsets:
                 try:
                     metadata = [
-                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1,
+                        df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"],
                         df.loc[t0 + offset, f"{station}_DAYTIME"],
                         (t0 + offset).dayofyear / 365 * 2 - 1,
                         (t0 + offset).hour / 24 * 2 - 1,
@@ -93,20 +94,20 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
                     # so these timestamps will be removed from get_labels()
                     # Probably trying to look in 2016 but we don't have access to these values
-                    print(f"KeyError: {err}")
-                    metadata_sequence.append(place_holder)
+                    logging.debug(f"KeyError: {err}")
+                    metadata_sequence.append(place_holder_past)
             past_metadatas.append(metadata_sequence)
 
             future_metadata = []
             for offset in target_time_offsets:
                 try:
-                    future_metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"] / MAX_CLEARSKY_GHI * 2 - 1)
+                    future_metadata.append(df.loc[t0 + offset, f"{station}_CLEARSKY_GHI"])
                 except KeyError as err:
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
                     # so these timestamps will be removed from get_labels()
                     # Probably trying to look in 2016 but we don't have access to these values
-                    print(f"KeyError: {err}")
-                    future_metadata.append(place_holder)
+                    logging.debug(f"KeyError: {err}")
+                    future_metadata.append(place_holder_future)
             future_metadatas.append(future_metadata)
     return past_metadatas, future_metadatas
 
@@ -176,7 +177,7 @@ def get_hdf5_samples_list_datetime(
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
         stations: OrderedDict = Station.COORDS,
-) -> Tuple[List[np.array], List[int]]:
+) -> Tuple[List[np.array], List[int], List, List]:
     """
     Open one .hdf5 file for each target_datetime provided
     :param previous_time_offsets:
@@ -191,6 +192,7 @@ def get_hdf5_samples_list_datetime(
     paths = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_path] for t in target_datetimes]
     sample_offsets = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
     patches = []
+    a_min, a_max = [], []
     # List of invalid indexes in array, (no data, invalid path, etc.)
     invalid_indexes = []
     for i, path in enumerate(paths):
@@ -207,18 +209,20 @@ def get_hdf5_samples_list_datetime(
 
         with h5py.File(hdf5_path, "r") as f_h5:
             h5 = HDF5File(f_h5)
-            patches_index = _get_one_sample(
+            patches_index, min_index, max_index = _get_one_sample(
                 h5, target_datetimes[i], sample_offsets[i], stations, patch_size, previous_time_offsets, h5_previous
             )
             if patches_index is None or len(patches_index) == 0:
                 invalid_indexes.append(i)
             else:
                 patches.extend(patches_index)
+                a_min.extend(min_index)
+                a_max.extend(max_index)
 
         if f_h5_before is not None:
             f_h5_before.close()
 
-    return patches, invalid_indexes
+    return patches, invalid_indexes, a_min, a_max
 
 
 def _get_path_yesterday(t0: pd.Timestamp, df: pd.DataFrame, path: str, directory: str) -> Optional[h5py.File]:
@@ -252,6 +256,7 @@ def _get_one_sample(
         h5_previous: HDF5File = None,
 ):
     patches_index = []
+    min_index, max_index = [], []
     patch = h5.get_image_patches(t0_offset, stations, patch_size=patch_size)
 
     if patch is None or len(patch) == 0:  # t0 image is invalid
@@ -266,10 +271,16 @@ def _get_one_sample(
             # Looking in file from day before
             if h5_previous is None:
                 patch_prev = None
+                min_prev = np.reshape(HDF5File.MIN_CHANNELS, 5)
+                max_prev = np.reshape(HDF5File.MAX_CHANNELS, 5)
             else:
                 patch_prev = h5_previous.get_image_patches(prev_offset, stations, patch_size=patch_size)
+                min_prev = [h5_previous.orig_min(channel) for channel in HDF5File.CHANNELS]
+                max_prev = [h5_previous.orig_max(channel) for channel in HDF5File.CHANNELS]
         else:
             patch_prev = h5.get_image_patches(prev_offset, stations, patch_size=patch_size)
+            min_prev = [h5.orig_min(channel) for channel in HDF5File.CHANNELS]
+            max_prev = [h5.orig_max(channel) for channel in HDF5File.CHANNELS]
 
         if patch_prev is None or len(patch_prev) == 0:
             # No image available at t0 - offset
@@ -277,10 +288,19 @@ def _get_one_sample(
         else:
             patches_index.insert(len(patches_index) - 1, patch_prev)
 
+        min_index.insert(len(patches_index) - 1, min_prev)
+        max_index.insert(len(patches_index) - 1, max_prev)
+
     patches_index = np.stack(patches_index, axis=-1)
+
+    min_index = np.stack(min_index, axis=0)
+    min_index = np.expand_dims(min_index, axis=(0, 2, 3))
+    max_index = np.stack(max_index, axis=0)
+    max_index = np.expand_dims(max_index, axis=(0, 2, 3))
+
     # We want size (len_stations, len(previous_time_offsets), patch_size, patch_size, n_channels)
     patches_index = np.transpose(patches_index, (0, 4, 1, 2, 3))
-    return patches_index
+    return patches_index, min_index, max_index
 
 
 def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
