@@ -294,9 +294,11 @@ def _get_one_sample(
     patches_index = np.stack(patches_index, axis=-1)
 
     min_index = np.stack(min_index, axis=0)
-    min_index = np.expand_dims(min_index, axis=(0, 2, 3))
     max_index = np.stack(max_index, axis=0)
-    max_index = np.expand_dims(max_index, axis=(0, 2, 3))
+    # output should be [None, len(previous_time_offsets), 1, 1, n_channels]
+    for i in [0, 2, 3]:
+        min_index = np.expand_dims(min_index, i)
+        max_index = np.expand_dims(max_index, i)
 
     # We want size (len_stations, len(previous_time_offsets), patch_size, patch_size, n_channels)
     patches_index = np.transpose(patches_index, (0, 4, 1, 2, 3))

@@ -1,5 +1,6 @@
 flake8==3.7.9
 matplotlib==3.1.2
+numpy==1.17.4
 opencv_python==4.1.2.30
 pytest==5.3.4
 setuptools==45.1.0
