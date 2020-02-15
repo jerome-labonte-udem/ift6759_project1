@@ -5,5 +5,6 @@
 #SBATCH --mem=10000M
 
 source /project/cq-training-1/project1/teams/team09/venv/bin/activate
-python /project/cq-training-1/project1/teams/team09/ift6759_project1/generate_batches.py --pickle_path /project/cq-training-1/project1/teams/team09/pickles_16bit --cfg_path /project/cq-training-1/project1/teams/team09/ift6759_project1/config_files/data_config_16b
-it.json --train_datetimes_path /project/cq-training-1/project1/teams/team09/ift6759_project1/config_files/train_datetimes_43912.json --val_datetimes_path /project/cq-training-1/project1/teams/team09/ift6759_project1/config_files/valid_datetimes_1417.json
+python /project/cq-training-1/project1/teams/team09/ift6759_project1/src/preprocess_tf_record.py \
+      --cfg_path /project/cq-training-1/project1/teams/team09/ift6759_project1/config_files/data_config_tfrecord.json \
+      --validation
