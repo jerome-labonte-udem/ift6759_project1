@@ -51,10 +51,10 @@ def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch
     ]
 
 
-def main(model_path: str, config_path: str, cfg_data_path: str, plot_loss: bool) -> None:
+def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> None:
     """
     Train a model and save the weights
-    :param cfg_data_path:
+    :param data_path: directory of tfrecords which includes train and validation folders
     :param model_path: path where model weigths will be saved
     :param config_path: path to json config file
     :param plot_loss: plot losses at end of training if True
@@ -63,9 +63,7 @@ def main(model_path: str, config_path: str, cfg_data_path: str, plot_loss: bool)
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
-    assert os.path.isfile(cfg_data_path), f"invalid cfg_data_path: {cfg_data_path}"
-    with open(cfg_data_path, "r") as config_file:
-        data_config = json.load(config_file)
+    assert os.path.isdir(data_path), f"invalid data_path directory: {data_path}"
 
     epochs = config["epochs"]
     train_batch_size = config["train_batch_size"]
@@ -74,9 +72,6 @@ def main(model_path: str, config_path: str, cfg_data_path: str, plot_loss: bool)
 
     dataframe_path = config["dataframe_path"]
     assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
-
-    tf_records_path = data_config["save_path"]
-    assert os.path.isdir(tf_records_path), f"invalid directory: tf_records_path: {tf_records_path}"
 
     train_stations = config["train_stations"]
 
@@ -101,16 +96,16 @@ def main(model_path: str, config_path: str, cfg_data_path: str, plot_loss: bool)
 
     model_name = config["model_name"]
 
-    is_cnn = model_name == "CNN2D"
-    train_data = tfrecord_dataloader(Path(tf_records_path, "train"), is_cnn, patch_size[0])
-    val_data = tfrecord_dataloader(Path(tf_records_path, "validation"), is_cnn, patch_size[0])
+    is_cnn = model_name == "CNN2D" or model_name == "VGG2D"
+    train_data = tfrecord_dataloader(Path(data_path, "train"), is_cnn, patch_size[0])
+    val_data = tfrecord_dataloader(Path(data_path, "validation"), is_cnn, patch_size[0])
 
     # Here, we assume that the model Class is in a module with the same name and under models
 
     model_module = importlib.import_module(f".{model_name}", package="models")
     timesteps = len(previous_time_offsets)
     target_len = len(target_time_offsets)
-    inp_img_seq = tf.keras.layers.Input((timesteps, 32, 32, 5))
+    inp_img_seq = tf.keras.layers.Input((timesteps, patch_size[0], patch_size[1], 5))
     inp_metadata_seq = tf.keras.layers.Input((timesteps, 5))
     inp_future_metadata = tf.keras.layers.Input(target_len)
     inp_shapes = [inp_img_seq, inp_metadata_seq, inp_future_metadata]
@@ -154,14 +149,13 @@ if __name__ == "__main__":
                         help="path where the model should be saved")
     parser.add_argument("--cfg_path", type=str,
                         help="path to the JSON config file used to define train parameters")
-    parser.add_argument("--cfg_data_path", type=str,
-                        help="path to the JSON config file of data config tfrecord")
+    parser.add_argument("--data_path", type=str, help="directory of the data")
     parser.add_argument("-p", "--plot", help="plot the training and validation loss",
                         action="store_true")
     args = parser.parse_args()
     main(
         model_path=args.model_path,
         config_path=args.cfg_path,
-        cfg_data_path=args.cfg_data_path,
+        data_path=args.data_path,
         plot_loss=args.plot
     )

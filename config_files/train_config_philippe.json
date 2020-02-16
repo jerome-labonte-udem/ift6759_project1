@@ -6,9 +6,9 @@
   "val_batch_size": 64,
   "start_bound": "2012-01-01T08:00:00",
   "end_bound": "2012-01-31T08:00:00",
-  "model_name": "CNN2D",
+  "model_name": "VGG2D",
   "saved_weights_path": "tests/saved_models/cnn_2d_10_epochs/",
-  "patch_size": 32,
+  "patch_size": 64,
   "compile_params":{"loss":"mse", "optimizer":"adam"},
   "train_stations": {
     "BND": [40.05192, -88.37309, 230],

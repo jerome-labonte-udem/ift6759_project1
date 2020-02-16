@@ -16,7 +16,10 @@ FILE_TF_RECORD = "input_file_month.tfrecord"
 
 def shard_dataset(path_save: str, n_shards: int):
     raw_dataset = tf.data.TFRecordDataset(os.path.join(path_save, FILE_TF_RECORD))
-    for i in range(n_shards):
+    i = 0
+    for _ in range(n_shards):
+        while os.path.exists(os.path.join(path_save, f"output_file-part-{i}.tfrecord")):
+            i += 1
         writer = tf.data.experimental.TFRecordWriter(os.path.join(path_save, f"output_file-part-{i}.tfrecord"))
         writer.write(raw_dataset.shard(n_shards, i))
 
@@ -42,7 +45,7 @@ def _convert_example(sample, past_metadata, future_metadata, min_channels, max_c
     return example.SerializeToString()
 
 
-def preprocess_tfrecords(path_config: str, test_local: bool, is_validation: bool):
+def preprocess_tfrecords(path_config: str, test_local: bool, is_validation: bool, year: int):
 
     assert os.path.isfile(path_config), f"invalid config file: {path_config}"
     with open(path_config, "r") as config_file:
@@ -71,12 +74,18 @@ def preprocess_tfrecords(path_config: str, test_local: bool, is_validation: bool
             df = df.loc[df.index.year == 2012]
             df = df.loc[df.index.month == 1]
 
+    if year in [2010, 2011, 2012, 2013, 2014, 2015, 2016]:
+        df = df.loc[df.index.year == year]
+
     os.makedirs(path_save, exist_ok=True)
 
     target_datetimes = list(df.loc[~df[Catalog.is_invalid]].index.values)
     random.shuffle(target_datetimes)
 
     print(f"Total of {len(target_datetimes)} target_datetimes to process")
+    if len(df) == 0 or len(target_datetimes) == 0:
+        raise ValueError(f"DF and target_datetimes is empty: wrong set of arguments: "
+                         f"year={year}; validation={is_validation}; test_local={test_local}")
 
     previous_time_offsets = get_previous_time_offsets()
 
@@ -116,8 +125,11 @@ if __name__ == "__main__":
     parser.add_argument(
         '--test_local', dest='test_local', action='store_true'
     )
+    parser.add_argument(
+        '--year', type=int, help='year to preprocess training set', default=-1
+    )
     parser.set_defaults(validation=False)
     parser.set_defaults(test_local=False)
 
     args = parser.parse_args()
-    preprocess_tfrecords(args.cfg_path, args.test_local, args.validation)
+    preprocess_tfrecords(args.cfg_path, args.test_local, args.validation, args.year)
