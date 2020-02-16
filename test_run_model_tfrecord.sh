@@ -1,10 +1,8 @@
 #!/bin/bash
-#SBATCH --account=rpp-bengioy            # Yoshua pays for your job
-#SBATCH --cpus-per-task=6                # Ask for 6 CPUs
 #SBATCH --gres=gpu:1                     # Ask for 1 GPU
 #SBATCH --mem=32G                        # Ask for 32 GB of RAM
-#SBATCH --time=6:00:00                   # The job will run for 3 hours
-#SBATCH -o /scratch/<user>/slurm-%j.out  # Write the log in $SCRATCH
+#SBATCH --time=10:00:00                  # The job will run for 3 hours
+#SBATCH --output=./logfile
 
 FOLDER="/project/cq-training-1/project1/teams/team09"
 # ZIP_FILE="tf_records.zip"
