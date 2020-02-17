@@ -9,7 +9,6 @@ from typing import Set, List, Tuple, Optional
 from _collections import OrderedDict
 import datetime
 import h5py
-import random
 import logging
 import json
 from src.schema import Catalog, Station
@@ -112,66 +111,6 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
     return past_metadatas, future_metadatas
 
 
-def get_hdf5_samples_from_day(
-        df: pd.DataFrame,
-        target_datetimes: List[datetime.datetime],
-        previous_time_offsets: List[datetime.timedelta],
-        test_time: bool,
-        patch_size: Tuple[int, int],
-        directory: Optional[str] = None,
-        stations: OrderedDict = Station.COORDS,
-) -> Tuple[List[np.array], List[int]]:
-    """
-    This is for train/validation time only.
-    Assume each target datetime has same path in the dataframe (come from same day)
-    Get len(target_days) sample from only one .hdf5 file
-    :param test_time:
-    :param previous_time_offsets: *Important* Assume Chronological order of deltas (e.g. -12, -6, -3, -1)
-    :param stations:
-    :param patch_size:
-    :param target_datetimes:
-    :param df: catalog.pkl
-    :param directory: If directory is not provided (None), use the path from catalog dataframe,
-    else use the directory provided but with same filename
-    :return: Tuple[patches as np,array, list of index of invalid target_datimes (no picture)]
-    """
-    # path should be the same for all datetimes
-    t0 = pd.Timestamp(target_datetimes[0])
-    path = df.at[t0, Catalog.hdf5_8bit_path]
-
-    if directory is None:
-        hdf5_path = path
-    else:
-        folder, filename = os.path.split(path)
-        hdf5_path = os.path.join(directory, filename)
-
-    sample_offsets = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
-
-    # Make sure the file of previous day exists !
-    f_h5_before = _get_path_yesterday(t0, df, path, directory)
-    h5_previous = None if f_h5_before is None else HDF5File(f_h5_before)
-
-    patches = []
-    # List of invalid indexes in array, (no data, invalid path, etc.)
-    invalid_indexes = []
-
-    with h5py.File(hdf5_path, "r") as f_h5:
-        h5 = HDF5File(f_h5)
-        for i, offset in enumerate(sample_offsets):
-            patches_index = _get_one_sample(
-                h5, target_datetimes[i], offset, test_time, stations, patch_size, previous_time_offsets, h5_previous
-            )
-            if patches_index is None or len(patches_index) == 0:
-                invalid_indexes.append(i)
-            else:
-                patches.extend(patches_index)
-
-    if f_h5_before is not None:
-        f_h5_before.close()
-
-    return patches, invalid_indexes
-
-
 def get_hdf5_samples_list_datetime(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
@@ -214,7 +153,8 @@ def get_hdf5_samples_list_datetime(
         with h5py.File(hdf5_path, "r") as f_h5:
             h5 = HDF5File(f_h5)
             patches_index, min_index, max_index = _get_one_sample(
-                h5, target_datetimes[i], sample_offsets[i], test_time, stations, patch_size, previous_time_offsets, h5_previous
+                h5, target_datetimes[i], sample_offsets[i], test_time, stations,
+                patch_size, previous_time_offsets, h5_previous
             )
             if patches_index is None or len(patches_index) == 0:
                 invalid_indexes.append(i)
@@ -309,22 +249,6 @@ def _get_one_sample(
     return patches_index, min_index, max_index
 
 
-def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
-                               batch_size) -> List[datetime.datetime]:
-    """
-    Randomly sample batch_size timestamps from the target_day
-    ** filter_timestamps_train_time has to be called on dataframe before entering here **
-    :param df: catalog.pkl
-    :param target_day: datetime from the day of the hdf5 file we want to open (hour doesn't matter)
-    :param batch_size: number of timestamps we want to sample
-    :return: list of random timestamps from given day
-    """
-    path_day = df.at[target_day, Catalog.hdf5_8bit_path]
-    photos = df.loc[(df[Catalog.hdf5_8bit_path] == path_day) & (df[Catalog.is_invalid] == 0)]
-    random_timestamps = random.choices(photos.index, k=batch_size)
-    return random_timestamps
-
-
 def generate_random_timestamps_for_validation(
         df: pd.DataFrame,
         n_per_day: int,
@@ -332,6 +256,7 @@ def generate_random_timestamps_for_validation(
 ):
     """
     One time function to generate a validation set of size X
+    :param sampling:
     :param df: catalog.pkl
     :param n_per_day: number of timestamps to sample per day of 2015
     :return:

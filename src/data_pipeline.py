@@ -6,14 +6,14 @@ import datetime
 import pickle
 import random
 
+from src.hdf5 import HDF5File
 from src.schema import Station
 from src.utils.data_utils import (
-    get_labels_list_datetime, get_hdf5_samples_from_day, random_timestamps_from_day, get_metadata,
-    get_hdf5_samples_list_datetime
+    get_labels_list_datetime, get_metadata, get_hdf5_samples_list_datetime
 )
 
 
-def hdf5_dataloader_list_of_days(
+def hdf5_dataloader_test(
         dataframe: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],
@@ -26,10 +26,6 @@ def hdf5_dataloader_list_of_days(
         patch_size: Tuple[int, int] = (32, 32),
 ) -> tf.data.Dataset:
     """
-    * Train time *: Dataloader that takes as argument a list of days
-    (datetime.datetime but where the only thing that matters is the path to the hdf5_file).
-    We then sample "batch_size" timestamps from that day, and get a total of
-    num_stations * batch_size samples for that day
     * Test time *: Take as input a list of target_datetimes (same as required by script in evaluator.py)
     Args:
         dataframe: a pandas dataframe that provides the netCDF file path (or HDF5 file path and offset) for all
@@ -52,7 +48,7 @@ def hdf5_dataloader_list_of_days(
         must correspond to one sequence of past imagery data. The tensors must be generated in the order given
         by ``target_sequences``.
     """
-    if subset not in ["train", "valid", "test"]:
+    if subset not in ["valid", "test"]:
         raise ValueError(f"Invalid subset string provided = {subset}")
 
     if stations is None:
@@ -61,50 +57,31 @@ def hdf5_dataloader_list_of_days(
         stations = {k: Station.COORDS[k] for k in stations.keys()}
 
     def data_generator():
-        if subset in ["valid", "test"]:  # Directly use the provided list of datetimes
-            # We can't delete any img/target at valid/test time since they have to be in order for evaluator.py
-            for batch_idx in range(0, len(target_datetimes) // batch_size + 1):
-                batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
-                if not batch_of_datetimes:
-                    continue
+        # Directly use the provided list of datetimes
+        # We can't delete any img/target at valid/test time since they have to be in order for evaluator.py
+        for batch_idx in range(0, len(target_datetimes) // batch_size + 1):
+            batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
+            if not batch_of_datetimes:
+                continue
 
-                samples, _, _, _ = get_hdf5_samples_list_datetime(
-                    dataframe, batch_of_datetimes, previous_time_offsets, True, patch_size, data_directory, stations,
-                )
+            samples, _, _, _ = get_hdf5_samples_list_datetime(
+                dataframe, batch_of_datetimes, previous_time_offsets, test_time=True, patch_size=patch_size,
+                directory=data_directory, stations=stations,
+            )
 
-                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
-                                                              target_time_offsets, stations)
-                if subset == "test":
-                    targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
-                else:  # validation
-                    targets, _ = get_labels_list_datetime(
-                        dataframe, batch_of_datetimes, target_time_offsets, stations
-                    )
-                yield (samples, past_metadata, future_metadata), targets
-        else:
-            for i in range(0, len(target_datetimes)):
-                # Generate randomly batch_size timestamps from that given day
-                batch_of_datetimes = random_timestamps_from_day(dataframe, target_datetimes[i], batch_size)
-                samples, invalids_i = get_hdf5_samples_from_day(
-                    dataframe, batch_of_datetimes, previous_time_offsets, False, patch_size, data_directory, stations,
-                )
-                for index in sorted(invalids_i, reverse=True):
-                    del batch_of_datetimes[index]
-                if len(batch_of_datetimes) == 0:
-                    # whole day is invalid
-                    continue
-                past_metadata, future_metadata = get_metadata(dataframe, batch_of_datetimes, previous_time_offsets,
-                                                              target_time_offsets, stations)
-                targets, invalid_idx_t = get_labels_list_datetime(
+            # Normalize here since we normalize at load time for tfrecords at train time
+            samples = HDF5File.min_max_normalization_min1_1(samples)
+
+            past_metadata, future_metadata = get_metadata(
+                dataframe, batch_of_datetimes, previous_time_offsets, target_time_offsets, stations
+            )
+            if subset == "test":
+                targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
+            else:  # validation
+                targets, _ = get_labels_list_datetime(
                     dataframe, batch_of_datetimes, target_time_offsets, stations
                 )
-                # Remove samples and metadata at indexes of invalid targets
-                for index in sorted(invalid_idx_t, reverse=True):
-                    del targets[index]
-                    del samples[index]
-                    del past_metadata[index]
-                    del future_metadata[index]
-                yield (samples, past_metadata, future_metadata), targets
+            yield (samples, past_metadata, future_metadata), targets
 
     past_metadata_len = 5  # day, hour, min, daytime, Clearsky
     future_metadata_len = len(target_time_offsets)
@@ -164,6 +141,9 @@ def tfrecord_dataloader(
                 del samples[index]
                 del past_metadata[index]
                 del future_metadata[index]
+
+            if len(samples) == 0:
+                continue
 
             yield (samples, past_metadata, future_metadata, min_idx, max_idx), targets
 

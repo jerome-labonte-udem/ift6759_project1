@@ -7,7 +7,10 @@ import tensorflow as tf
 
 class VGG2D(tf.keras.Model):
     """
-    Toy model to test multiple inputs and outputs
+    Model based on paper
+    A deep learning approach to solar-irradiance forecasting in sky
+    https://arxiv.org/abs/1901.04881
+    ** Not Finished **
     """
 
     def __init__(self):

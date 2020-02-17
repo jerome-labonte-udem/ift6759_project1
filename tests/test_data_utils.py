@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 from pathlib import Path
 from src.utils.data_utils import (
-    get_metadata, get_labels_list_datetime, random_timestamps_from_day
+    get_metadata, get_labels_list_datetime
 )
 from src.schema import Station, Catalog, get_target_time_offsets, get_previous_time_offsets
 import numpy as np
@@ -33,10 +33,6 @@ class TestDataUtils(unittest.TestCase):
         print(f"Dataframe has total of {len(self.df)} rows")
         df = Catalog.add_invalid_t0_column(self.df)
         print(f"Number of invalid rows for t0 = {len(df.loc[df['is_invalid']])}")
-        # Test that starting from one day, we can randomly sample X timestamps from that day
-        bs = 10
-        ts = random_timestamps_from_day(self.df, self.datetime_hdf5_test, batch_size=bs)
-        self.assertEqual(10, len(ts))
 
     def test_get_metadata(self):
         start_index = 24

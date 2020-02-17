@@ -52,7 +52,7 @@ class HDF5File:
         return (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)
 
     @staticmethod
-    def min_max_normalization_min1_1(array: np.ndarray):
+    def min_max_normalization_min1_1(array):
         # Min-max normalisation in the [-1, 1] range
         return (2 * (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)) - 1
 

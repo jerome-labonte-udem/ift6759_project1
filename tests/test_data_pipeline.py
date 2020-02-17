@@ -3,10 +3,12 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import datetime
-from src.schema import get_target_time_offsets, Station, Catalog
-from src.data_pipeline import hdf5_dataloader_list_of_days
+import tensorflow as tf
 from matplotlib import pyplot as plt
 import cv2 as cv
+
+from src.schema import get_target_time_offsets, Station, Catalog
+from src.data_pipeline import hdf5_dataloader_test
 
 
 class TestDataPipeline(unittest.TestCase):
@@ -23,25 +25,6 @@ class TestDataPipeline(unittest.TestCase):
                 datetime.timedelta(hours=-6), datetime.timedelta(hours=-3), datetime.timedelta(hours=-1)
         ]
 
-    def test_hdf5_dataloader_list_of_days(self):
-        """
-        Test dataloader at train/valid time (list of days)
-        Test 1) Previous time offsets are given (looking at past days)
-        Test 2) Only looking at T0
-        """
-        list_days = [self.datetime_hdf5_first, self.datetime_hdf5_middle_2, self.datetime_hdf5_last]
-        dataset = hdf5_dataloader_list_of_days(
-            self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir,
-            patch_size=(32, 32), batch_size=8, subset="train", previous_time_offsets=self.previous_time_offsets
-        )
-
-        for (sample, past_metadata, future_metadata), target in dataset:
-            self.assertEqual(len(sample), len(target))
-            self.assertEqual(len(past_metadata), len(target))
-            self.assertEqual(len(future_metadata), len(target))
-            for t in target:
-                self.assertEqual(len(get_target_time_offsets()), len(t))
-
     def test_hdf5_data_loader_test_time(self):
         # Test dataloader at test time (list of target times)
         # Test with two cases, 1) we have some previous time offsets (looking at past images)
@@ -57,16 +40,18 @@ class TestDataPipeline(unittest.TestCase):
             self.datetime_hdf5_last + datetime.timedelta(hours=6, minutes=15),
             self.datetime_hdf5_last + datetime.timedelta(hours=12)
         ]
-
-        dataset = hdf5_dataloader_list_of_days(
-            self.df, list_datetimes, get_target_time_offsets(), data_directory=self.hdf8_dir,
-            batch_size=len(list_datetimes), subset="test", previous_time_offsets=self.previous_time_offsets,
-            stations=Station.COORDS
-        )
-        for (sample, past_metadata, future_metadata), target in dataset:
-            self.assertEqual(len(sample), len(target))
-            self.assertEqual(len(past_metadata), len(target))
-            self.assertEqual(len(future_metadata), len(target))
+        for subset in ["valid", "test"]:
+            dataset = hdf5_dataloader_test(
+                self.df, list_datetimes, get_target_time_offsets(), data_directory=self.hdf8_dir,
+                batch_size=len(list_datetimes), subset=subset, previous_time_offsets=self.previous_time_offsets,
+                stations=Station.COORDS
+            )
+            for (sample, past_metadata, future_metadata), target in dataset:
+                self.assertEqual(len(sample), len(target))
+                self.assertEqual(len(past_metadata), len(target))
+                self.assertEqual(len(future_metadata), len(target))
+                self.assertTrue(tf.reduce_max(sample) <= 1.01)
+                self.assertTrue(tf.reduce_min(sample) >= -1.01)
 
     def test_visualize_one_sample(self):
         """ Visualize all photos (previous and t0) of a sample"""
@@ -77,9 +62,9 @@ class TestDataPipeline(unittest.TestCase):
             (-12, 0), (-9, 0), (-6, 0), (-3, 0),
             (-2, 0), (-1, 0), (0, -30), (0, -15), (0, 0)
         ]
-        dataset = hdf5_dataloader_list_of_days(
+        dataset = hdf5_dataloader_test(
             self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir, patch_size=(256, 256),
-            batch_size=8, subset="train", stations={Station.GWN: Station.COORDS[Station.GWN]},
+            batch_size=8, subset="valid", stations={Station.GWN: Station.COORDS[Station.GWN]},
             previous_time_offsets=[datetime.timedelta(hours=h, minutes=m) for h, m in hours_min[:-1]]
         )
 

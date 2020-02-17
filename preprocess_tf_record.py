@@ -7,8 +7,6 @@ import tensorflow as tf
 import numpy as np
 import random
 from typing import Tuple
-import logging
-
 
 from src.data_pipeline import tfrecord_dataloader
 from src.schema import Catalog, get_target_time_offsets, get_previous_time_offsets
@@ -46,8 +44,19 @@ def _convert_example(sample, past_metadata, future_metadata, min_channels, max_c
 
 def preprocess_tfrecords(
         dataframe_path: str, data_path: str, path_save: str, patch_size: Tuple[int, int],
-        test_local: bool, is_validation: bool, debug=False
+        test_local: bool, is_validation: bool, year_month_day: Tuple[int, int, int] = None
 ):
+    """
+    Preprocess train set / validation set in shuffled tf_records of around 100MB each
+    :param dataframe_path: path to catalog.pkl
+    :param data_path: path to hdf5 files
+    :param path_save: directory to save, which will be further divided in /train or /valid
+    :param patch_size: patch_size to store, we can further crop into it at load time
+    :param test_local:
+    :param is_validation: preprocess validation set (2015)
+    :param year_month_day: specify (year, month, day) of target_datetimes, made for debugging !
+    :return:
+    """
     assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
     df = Catalog.add_invalid_t0_column(pd.read_pickle(dataframe_path))
 
@@ -71,11 +80,11 @@ def preprocess_tfrecords(
 
     batch_size = 16
 
-    if debug:
+    if year_month_day is not None and isinstance(year_month_day, tuple):
         print("Debugging preprocessing TF Record")
-        df = df.loc[df.index.year == 2012]
-        df = df.loc[df.index.month == 1]
-        df = df.loc[df.index.day == 9]
+        df = df.loc[df.index.year == year_month_day[0]]
+        df = df.loc[df.index.month == year_month_day[1]]
+        df = df.loc[df.index.day == year_month_day[2]]
 
     target_datetimes = list(df.loc[~df[Catalog.is_invalid]].index.values)
     random.shuffle(target_datetimes)
@@ -93,7 +102,7 @@ def preprocess_tfrecords(
     )
     # approx 0.1MB - per target_datetime --> divide by 1000 to get around 100MB per shard
     n_shards = max(len(target_datetimes) // 1000, 1)
-    print(f"n_shards estimated = {n_shards}")
+    print(f"Splitting the data in {n_shards} shards")
     path_tf_record = os.path.join(path_save, FILE_TF_RECORD)
 
     with tf.io.TFRecordWriter(path_tf_record) as writer:
@@ -117,6 +126,7 @@ def preprocess_tfrecords(
                 example = _convert_example(sample, p, f, min_idx, max_idx, t)
                 writer.write(example)
 
+    # Split dataset in n_shards
     shard_dataset(path_save, n_shards)
     # Delete original (non-sharded record)
     os.remove(path_tf_record)

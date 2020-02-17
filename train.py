@@ -85,15 +85,6 @@ def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> 
     target_time_offsets = [pd.Timedelta(d).to_pytimedelta() for d in config["target_time_offsets"]]
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
 
-    start_time = config["start_bound"]
-    start_datetime = datetime.datetime.fromisoformat(start_time)
-    end_time = config["end_bound"]
-    end_datetime = datetime.datetime.fromisoformat(end_time)
-    train_datetimes = []
-    while start_datetime <= end_datetime:
-        train_datetimes.append(start_datetime)
-        start_datetime += datetime.timedelta(days=1)
-
     model_name = config["model_name"]
 
     is_cnn = model_name == "CNN2D" or model_name == "VGG2D"

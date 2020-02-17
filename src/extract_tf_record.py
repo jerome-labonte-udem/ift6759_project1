@@ -1,7 +1,6 @@
 import tensorflow as tf
 import os
 import glob
-from pathlib import Path
 from src.hdf5 import HDF5File
 
 SAMPLE = "sample"
@@ -15,7 +14,10 @@ HALF_INIT_PS = 64 // 2
 
 
 def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int):
-    """ Based on https://www.tensorflow.org/tutorials/load_data/tfrecord """
+    """
+    Based on https://www.tensorflow.org/tutorials/load_data/tfrecord
+    Extract our dataset from a directory of tf_records
+    """
     all_files = []
     for file in glob.glob(os.path.join(dir_shards, "*.tfrecord")):
         all_files.append(file)
@@ -70,7 +72,7 @@ def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int):
 
 
 def filter_fn(inputs, target):
-    # remove all images that have NaN values
+    # remove all samples that have NaN values
     return not tf.reduce_any(tf.math.is_nan(inputs[0]))
 
 
@@ -79,24 +81,14 @@ def tfrecord_dataloader(
         cnn_2d: bool,
         patch_size: int
 ) -> tf.data.Dataset:
+    """
+    Dataloader at train time, fetch pre-shuffled batches of target_datetimes
+    :param dir_shards: directory where the shards of .tfrecords are
+    :param cnn_2d: if cnn2d, only return image at t0, else return [previous_images, t0]
+    :param patch_size: patch_size to crop, needs to be < INIT_PS
+    :return:
+    """
     data_loader = parse_dataset(dir_shards, cnn_2d, patch_size)
     data_loader = data_loader.filter(filter_fn)
     data_loader.prefetch(tf.data.experimental.AUTOTUNE)
     return data_loader
-
-
-def main():
-    dir_shards = Path(Path(__file__).parent.parent, "data", "tf_records", "train")
-    loader = tfrecord_dataloader(dir_shards, cnn_2d=True, patch_size=64)
-    for i, ((sample, past_metadata, future_metadata), target) in enumerate(loader.batch(24)):
-        tf.debugging.assert_all_finite(sample, f"sample has NaN {sample}")
-        tf.debugging.assert_all_finite(past_metadata, "past_metadata has NaN")
-        tf.debugging.assert_all_finite(future_metadata, "future_metadata has NaN")
-        tf.debugging.assert_all_finite(target, "target has NaN")
-        print(sample.shape, past_metadata.shape, future_metadata.shape, target.shape)
-        if i == 200:
-            break
-
-
-if __name__ == '__main__':
-    main()

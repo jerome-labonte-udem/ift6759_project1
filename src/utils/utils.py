@@ -2,6 +2,7 @@ import os
 import typing
 
 import cv2 as cv
+import lz4.frame
 import numpy as np
 import tensorflow as tf
 
@@ -11,15 +12,19 @@ def compress_array(
         compr_type: typing.Optional[str] = "auto",
 ) -> bytes:
     """Compresses the provided numpy array according to a predetermined strategy.
-
     If ``compr_type`` is 'auto', the best strategy will be automatically selected based on the input
     array type. If ``compr_type`` is an empty string (or ``None``), no compression will be applied.
     """
-    assert compr_type is None or compr_type in ["uint8+jpg",
+    assert compr_type is None or compr_type in ["lz4", "float16+lz4", "uint8+jpg",
                                                 "uint8+jp2", "uint16+jp2", "auto", ""], \
         f"unrecognized compression strategy '{compr_type}'"
     if compr_type is None or not compr_type:
         return array.tobytes()
+    if compr_type == "lz4":
+        return lz4.frame.compress(array.tobytes())
+    if compr_type == "float16+lz4":
+        assert np.issubdtype(array.dtype, np.floating), "no reason to cast to float16 is not float32/64"
+        return lz4.frame.compress(array.astype(np.float16).tobytes())
     if compr_type == "uint8+jpg":
         assert array.ndim == 2 or (array.ndim == 3 and (array.shape[2] == 1 or array.shape[2] == 3)), \
             "jpg compression via tensorflow requires 2D or 3D image with 1/3 channels in last dim"
@@ -47,7 +52,7 @@ def compress_array(
                 return b"uint8+jpg" + compress_array(array, compr_type="uint8+jpg")
             if array.dtype == np.uint16:
                 return b"uint16+jp2" + compress_array(array, compr_type="uint16+jp2")
-        raise ValueError("Invalid compression used")
+        return b"lz4" + compress_array(array, compr_type="lz4")
 
 
 def decompress_array(
@@ -57,18 +62,18 @@ def decompress_array(
         shape: typing.Optional[typing.Union[typing.List, typing.Tuple]] = None,
 ) -> np.ndarray:
     """Decompresses the provided numpy array according to a predetermined strategy.
-
     If ``compr_type`` is 'auto', the correct strategy will be automatically selected based on the array's
     bytecode prefix. If ``compr_type`` is an empty string (or ``None``), no decompression will be applied.
-
     This function can optionally convert and reshape the decompressed array, if needed.
     """
-    compr_types = ["uint8+jpg", "uint8+jp2", "uint16+jp2"]
+    compr_types = ["lz4", "float16+lz4", "uint8+jpg", "uint8+jp2", "uint16+jp2"]
     assert compr_type is None or compr_type in compr_types or compr_type in ["", "auto"], \
         f"unrecognized compression strategy '{compr_type}'"
     assert isinstance(buffer, bytes) or buffer.dtype == np.uint8, "invalid raw data buffer type"
     if isinstance(buffer, np.ndarray):
         buffer = buffer.tobytes()
+    if compr_type == "lz4" or compr_type == "float16+lz4":
+        buffer = lz4.frame.decompress(buffer)
     if compr_type == "uint8+jpg":
         # tf.io.decode_jpeg often segfaults when initializing parallel pipelines, let's avoid it...
         # buffer = tf.io.decode_jpeg(buffer).numpy()

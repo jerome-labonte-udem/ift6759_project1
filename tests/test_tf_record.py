@@ -48,6 +48,21 @@ class MyTestCase(unittest.TestCase):
             relative_pct = 100 * max_loss / HDF5File.MAX_CHANNELS[:, :, :, i]
             self.assertTrue(relative_pct < 1)
 
+    def test_preprocess_on_empty_day(self):
+        # January 2010 has lot of NaNs all day
+        # Make sure preprocessing is robust to that
+        preprocess_tfrecords(
+            self.df_path,
+            self.hdf8_dir,
+            self.path_save,
+            patch_size=self.patch_size,
+            test_local=False,
+            is_validation=False,
+            year_month_day=(2010, 1, 1)
+        )
+        # delete temporary directory
+        shutil.rmtree(self.path_save)
+
     def test_preprocess_and_extract(self):
         # Preprocess one day
         preprocess_tfrecords(
@@ -57,7 +72,7 @@ class MyTestCase(unittest.TestCase):
             patch_size=self.patch_size,
             test_local=False,
             is_validation=False,
-            debug=True
+            year_month_day=(2012, 1, 9)
         )
 
         self.assertTrue(os.path.isdir(self.path_save))
