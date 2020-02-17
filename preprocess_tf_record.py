@@ -18,10 +18,7 @@ FILE_TF_RECORD = "input_file_month.tfrecord"
 
 def shard_dataset(path_save: str, n_shards: int):
     raw_dataset = tf.data.TFRecordDataset(os.path.join(path_save, FILE_TF_RECORD))
-    i = 0
-    for _ in range(n_shards):
-        while os.path.exists(os.path.join(path_save, f"output_file-part-{i}.tfrecord")):
-            i += 1
+    for i in range(n_shards):
         writer = tf.data.experimental.TFRecordWriter(os.path.join(path_save, f"output_file-part-{i}.tfrecord"))
         writer.write(raw_dataset.shard(n_shards, i))
 

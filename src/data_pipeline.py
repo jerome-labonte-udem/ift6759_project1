@@ -136,7 +136,7 @@ def tfrecord_dataloader(
     def data_generator():
         for batch_idx in range(0, len(target_datetimes) // batch_size + 1):
             batch_of_datetimes = target_datetimes[batch_idx * batch_size:(batch_idx + 1) * batch_size]
-            if not batch_of_datetimes:
+            if not batch_of_datetimes or len(batch_of_datetimes) == 0:
                 continue
 
             samples, invalids_i, min_idx, max_idx = get_hdf5_samples_list_datetime(
