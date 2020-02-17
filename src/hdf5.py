@@ -47,11 +47,6 @@ class HDF5File:
         return self.end_idx - self.start_idx
 
     @staticmethod
-    def min_max_normalization_0_1(array: np.ndarray):
-        # Min-max normalisation in the [0, 1] range
-        return (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)
-
-    @staticmethod
     def min_max_normalization_min1_1(array):
         # Min-max normalisation in the [-1, 1] range
         return (2 * (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)) - 1
@@ -155,7 +150,7 @@ class HDF5File:
             if data is None or np.isnan(data).any():
                 if test_time:  # At test time we always have to predict
                     channel_data.append(np.zeros(Catalog.size_image))
-                else:
+                else:  # At train time, we skip images that contain NaNs
                     return None
             else:
                 channel_data.append(data)

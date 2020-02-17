@@ -122,7 +122,7 @@ def get_hdf5_samples_list_datetime(
 ) -> Tuple[List[np.array], List[int], List, List]:
     """
     Open one .hdf5 file for each target_datetime provided
-    :param test_time:
+    :param test_time: if test_time, we are never skipping a data point
     :param previous_time_offsets:
     :param stations:
     :param patch_size:
@@ -135,6 +135,7 @@ def get_hdf5_samples_list_datetime(
     paths = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_path] for t in target_datetimes]
     sample_offsets = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
     patches = []
+    # min and max of arrays that was used to compress them
     a_min, a_max = [], []
     # List of invalid indexes in array, (no data, invalid path, etc.)
     invalid_indexes = []
@@ -201,6 +202,7 @@ def _get_one_sample(
         h5_previous: HDF5File = None,
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
     patches_index = []
+    # Store min and max to recompress array in tfrecords
     min_index, max_index = [], []
     patch = h5.get_image_patches(t0_offset, test_time, stations, patch_size=patch_size)
 
@@ -216,6 +218,7 @@ def _get_one_sample(
             # Looking in file from day before
             if h5_previous is None:
                 patch_prev = None
+                # if no image, we use global minimum and global maximum
                 min_prev = len(patch) * [list(np.reshape(HDF5File.MIN_CHANNELS, 5))]
                 max_prev = len(patch) * [list(np.reshape(HDF5File.MAX_CHANNELS, 5))]
             else:
