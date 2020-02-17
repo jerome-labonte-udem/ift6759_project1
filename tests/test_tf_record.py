@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 
 from src.hdf5 import HDF5File
-from src.preprocess_tf_record import preprocess_tfrecords
+from preprocess_tf_record import preprocess_tfrecords
 from src.extract_tf_record import tfrecord_dataloader
 
 
