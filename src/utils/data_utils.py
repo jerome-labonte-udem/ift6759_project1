@@ -259,14 +259,13 @@ def _get_one_sample(
         patch_size: Tuple[int, int],
         previous_time_offsets: List[datetime.timedelta],
         h5_previous: HDF5File = None,
-):
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
     patches_index = []
     min_index, max_index = [], []
     patch = h5.get_image_patches(t0_offset, test_time, stations, patch_size=patch_size)
 
     if patch is None or len(patch) == 0:  # t0 image is invalid
-        print(f"t0 is invalid")
-        return None
+        return None, None, None
 
     previous_offsets = HDF5File.get_offsets(
         pd.Timestamp(target_datetime), previous_time_offsets

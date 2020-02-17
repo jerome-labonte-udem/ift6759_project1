@@ -142,8 +142,12 @@ def tfrecord_dataloader(
             samples, invalids_i, min_idx, max_idx = get_hdf5_samples_list_datetime(
                 dataframe, batch_of_datetimes, previous_time_offsets, False, patch_size, data_directory, stations,
             )
+
             for index in sorted(invalids_i, reverse=True):
                 del batch_of_datetimes[index]
+
+            if len(batch_of_datetimes) == 0:
+                continue
 
             past_metadata, future_metadata = get_metadata(
                 dataframe, batch_of_datetimes, previous_time_offsets, target_time_offsets, stations

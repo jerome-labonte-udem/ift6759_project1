@@ -63,9 +63,9 @@ def preprocess_tfrecords(
         path_save = os.path.join(path_save, "train")
         df = df.loc[df.index.year < 2015]
         if test_local:
-            df = df.loc[df.index.year == 2012]
+            df = df.loc[df.index.year == 2010]
             df = df.loc[df.index.month == 1]
-            df = df.loc[df.index.week == 1]
+            df = df.loc[df.index.day == 1]
 
     os.makedirs(path_save, exist_ok=True)
 
