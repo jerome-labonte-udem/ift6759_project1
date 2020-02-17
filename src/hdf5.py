@@ -128,10 +128,12 @@ class HDF5File:
     def get_image_patches(
             self,
             sample_idx: int,
+            test_time: bool,
             stations_coords: collections.OrderedDict,
-            patch_size: Tuple[int, int] = (16, 16)
+            patch_size: Tuple[int, int] = (16, 16),
     ) -> np.array:
         """
+        :param test_time:
         :param sample_idx: index in the hdf5 file
         :param stations_coords: dictionnary of str -> (coord_x, coord_y) in the numpy array
         :param patch_size: size of the image crop that we will take
@@ -151,7 +153,10 @@ class HDF5File:
             # Even if a channel is missing or is NaN, return an array of zeros to always predict
             # something at validation/test time
             if data is None or np.isnan(data).any():
-                channel_data.append(np.zeros(Catalog.size_image))
+                if test_time:  # At test time we always have to predict
+                    channel_data.append(np.zeros(Catalog.size_image))
+                else:
+                    return None
             else:
                 channel_data.append(data)
 

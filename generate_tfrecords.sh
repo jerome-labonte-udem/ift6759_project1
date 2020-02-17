@@ -1,7 +1,7 @@
 #!/bin/bash
+#SBATCH --cpus-per-task=6                # Ask for 6 CPUs
 #SBATCH --time=12:00:00
 #SBATCH --gres=gpu:k80:1
-#SBATCH --cpus-per-task=4
 #SBATCH --mem=10000M
 
 source /project/cq-training-1/project1/teams/team09/venv/bin/activate

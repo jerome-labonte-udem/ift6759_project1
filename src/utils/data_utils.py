@@ -116,6 +116,7 @@ def get_hdf5_samples_from_day(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
         previous_time_offsets: List[datetime.timedelta],
+        test_time: bool,
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
         stations: OrderedDict = Station.COORDS,
@@ -124,6 +125,7 @@ def get_hdf5_samples_from_day(
     This is for train/validation time only.
     Assume each target datetime has same path in the dataframe (come from same day)
     Get len(target_days) sample from only one .hdf5 file
+    :param test_time:
     :param previous_time_offsets: *Important* Assume Chronological order of deltas (e.g. -12, -6, -3, -1)
     :param stations:
     :param patch_size:
@@ -157,7 +159,7 @@ def get_hdf5_samples_from_day(
         h5 = HDF5File(f_h5)
         for i, offset in enumerate(sample_offsets):
             patches_index = _get_one_sample(
-                h5, target_datetimes[i], offset, stations, patch_size, previous_time_offsets, h5_previous
+                h5, target_datetimes[i], offset, test_time, stations, patch_size, previous_time_offsets, h5_previous
             )
             if patches_index is None or len(patches_index) == 0:
                 invalid_indexes.append(i)
@@ -174,12 +176,14 @@ def get_hdf5_samples_list_datetime(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
         previous_time_offsets: List[datetime.timedelta],
+        test_time: bool,
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
         stations: OrderedDict = Station.COORDS,
 ) -> Tuple[List[np.array], List[int], List, List]:
     """
     Open one .hdf5 file for each target_datetime provided
+    :param test_time:
     :param previous_time_offsets:
     :param stations:
     :param patch_size:
@@ -210,7 +214,7 @@ def get_hdf5_samples_list_datetime(
         with h5py.File(hdf5_path, "r") as f_h5:
             h5 = HDF5File(f_h5)
             patches_index, min_index, max_index = _get_one_sample(
-                h5, target_datetimes[i], sample_offsets[i], stations, patch_size, previous_time_offsets, h5_previous
+                h5, target_datetimes[i], sample_offsets[i], test_time, stations, patch_size, previous_time_offsets, h5_previous
             )
             if patches_index is None or len(patches_index) == 0:
                 invalid_indexes.append(i)
@@ -250,6 +254,7 @@ def _get_one_sample(
         h5: HDF5File,
         target_datetime: datetime.datetime,
         t0_offset: int,
+        test_time: bool,
         stations: OrderedDict,
         patch_size: Tuple[int, int],
         previous_time_offsets: List[datetime.timedelta],
@@ -257,9 +262,10 @@ def _get_one_sample(
 ):
     patches_index = []
     min_index, max_index = [], []
-    patch = h5.get_image_patches(t0_offset, stations, patch_size=patch_size)
+    patch = h5.get_image_patches(t0_offset, test_time, stations, patch_size=patch_size)
 
     if patch is None or len(patch) == 0:  # t0 image is invalid
+        print(f"t0 is invalid")
         return None
 
     previous_offsets = HDF5File.get_offsets(
@@ -271,16 +277,16 @@ def _get_one_sample(
             # Looking in file from day before
             if h5_previous is None:
                 patch_prev = None
-                min_prev = np.reshape(HDF5File.MIN_CHANNELS, 5)
-                max_prev = np.reshape(HDF5File.MAX_CHANNELS, 5)
+                min_prev = len(patch) * [list(np.reshape(HDF5File.MIN_CHANNELS, 5))]
+                max_prev = len(patch) * [list(np.reshape(HDF5File.MAX_CHANNELS, 5))]
             else:
-                patch_prev = h5_previous.get_image_patches(prev_offset, stations, patch_size=patch_size)
-                min_prev = [h5_previous.orig_min(channel) for channel in HDF5File.CHANNELS]
-                max_prev = [h5_previous.orig_max(channel) for channel in HDF5File.CHANNELS]
+                patch_prev = h5_previous.get_image_patches(prev_offset, test_time, stations, patch_size=patch_size)
+                min_prev = len(patch) * [[h5_previous.orig_min(channel) for channel in HDF5File.CHANNELS]]
+                max_prev = len(patch) * [[h5_previous.orig_max(channel) for channel in HDF5File.CHANNELS]]
         else:
-            patch_prev = h5.get_image_patches(prev_offset, stations, patch_size=patch_size)
-            min_prev = [h5.orig_min(channel) for channel in HDF5File.CHANNELS]
-            max_prev = [h5.orig_max(channel) for channel in HDF5File.CHANNELS]
+            patch_prev = h5.get_image_patches(prev_offset, test_time, stations, patch_size=patch_size)
+            min_prev = len(patch) * [[h5.orig_min(channel) for channel in HDF5File.CHANNELS]]
+            max_prev = len(patch) * [[h5.orig_max(channel) for channel in HDF5File.CHANNELS]]
 
         if patch_prev is None or len(patch_prev) == 0:
             # No image available at t0 - offset
@@ -292,11 +298,10 @@ def _get_one_sample(
         max_index.insert(len(patches_index) - 1, max_prev)
 
     patches_index = np.stack(patches_index, axis=-1)
-
-    min_index = np.stack(min_index, axis=0)
-    max_index = np.stack(max_index, axis=0)
-    # output should be [None, len(previous_time_offsets), 1, 1, n_channels]
-    for i in [0, 2, 3]:
+    min_index = np.stack(min_index, axis=-1)
+    max_index = np.stack(max_index, axis=-1)
+    # output should be [len(stations), len(previous_time_offsets), 1, 1, n_channels]
+    for i in [2, 3]:
         min_index = np.expand_dims(min_index, i)
         max_index = np.expand_dims(max_index, i)
 

@@ -6,6 +6,8 @@ import tqdm
 import tensorflow as tf
 import numpy as np
 import random
+from typing import Tuple
+import logging
 
 
 from src.data_pipeline import tfrecord_dataloader
@@ -45,39 +47,38 @@ def _convert_example(sample, past_metadata, future_metadata, min_channels, max_c
     return example.SerializeToString()
 
 
-def preprocess_tfrecords(path_config: str, test_local: bool, is_validation: bool, year: int):
-
-    assert os.path.isfile(path_config), f"invalid config file: {path_config}"
-    with open(path_config, "r") as config_file:
-        config = json.load(config_file)
-
-    batch_size = 16
-    patch_size = (config["patch_size"], config["patch_size"])
-
-    dataframe_path = config["dataframe_path"]
+def preprocess_tfrecords(
+        dataframe_path: str, data_path: str, path_save: str, patch_size: Tuple[int, int],
+        test_local: bool, is_validation: bool, debug=False
+):
     assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
     df = Catalog.add_invalid_t0_column(pd.read_pickle(dataframe_path))
 
-    data_path = config["data_path"]
     assert os.path.isdir(data_path), f"invalid data path: {data_path}"
 
-    path_save = config["save_path"]
     if is_validation:
         path_save = os.path.join(path_save, "validation")
         df = df.loc[df.index.year == 2015]
         if test_local:
             df = df.loc[df.index.month == 1]
+            df = df.loc[df.index.week == 1]
     else:
         path_save = os.path.join(path_save, "train")
         df = df.loc[df.index.year < 2015]
         if test_local:
             df = df.loc[df.index.year == 2012]
             df = df.loc[df.index.month == 1]
-
-    if year in [2010, 2011, 2012, 2013, 2014, 2015, 2016]:
-        df = df.loc[df.index.year == year]
+            df = df.loc[df.index.week == 1]
 
     os.makedirs(path_save, exist_ok=True)
+
+    batch_size = 16
+
+    if debug:
+        print("Debugging preprocessing TF Record")
+        df = df.loc[df.index.year == 2012]
+        df = df.loc[df.index.month == 1]
+        df = df.loc[df.index.day == 9]
 
     target_datetimes = list(df.loc[~df[Catalog.is_invalid]].index.values)
     random.shuffle(target_datetimes)
@@ -85,7 +86,7 @@ def preprocess_tfrecords(path_config: str, test_local: bool, is_validation: bool
     print(f"Total of {len(target_datetimes)} target_datetimes to process")
     if len(df) == 0 or len(target_datetimes) == 0:
         raise ValueError(f"DF and target_datetimes is empty: wrong set of arguments: "
-                         f"year={year}; validation={is_validation}; test_local={test_local}")
+                         f"validation={is_validation}; test_local={test_local}")
 
     previous_time_offsets = get_previous_time_offsets()
 
@@ -102,7 +103,17 @@ def preprocess_tfrecords(path_config: str, test_local: bool, is_validation: bool
         for (samples, past_metadata, future_metadata, mins, maxs), target in tqdm.tqdm(
                 dataset, desc="Preparing minibatches", total=len(target_datetimes) // batch_size
         ):
+            # Verify
+            assert len(samples) == len(past_metadata)
+            assert len(samples) == len(future_metadata)
+            assert len(samples) == len(mins)
+            assert len(samples) == len(maxs)
+            assert len(samples) == len(target)
+
+            # Write to TFRecord
             for sample, p, f, min_idx, max_idx, t in zip(samples, past_metadata, future_metadata, mins, maxs, target):
+                if tf.reduce_any(tf.math.is_nan(sample)):
+                    continue
                 sample = sample.numpy()
                 min_idx, max_idx = min_idx.numpy(), max_idx.numpy()
                 sample = (((sample.astype(np.float32) - min_idx) / (max_idx - min_idx)) * 255).astype(np.uint8)
@@ -114,7 +125,7 @@ def preprocess_tfrecords(path_config: str, test_local: bool, is_validation: bool
     os.remove(path_tf_record)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--cfg_path", type=str, help="path to config file"
@@ -125,11 +136,24 @@ if __name__ == "__main__":
     parser.add_argument(
         '--test_local', dest='test_local', action='store_true'
     )
-    parser.add_argument(
-        '--year', type=int, help='year to preprocess training set', default=-1
-    )
     parser.set_defaults(validation=False)
     parser.set_defaults(test_local=False)
 
     args = parser.parse_args()
-    preprocess_tfrecords(args.cfg_path, args.test_local, args.validation, args.year)
+
+    assert os.path.isfile(args.cfg_path), f"invalid config file: {args.cfg_path}"
+    with open(args.cfg_path, "r") as config_file:
+        config = json.load(config_file)
+
+    preprocess_tfrecords(
+        config["dataframe_path"],
+        config["data_path"],
+        config["save_path"],
+        (config["patch_size"], config["patch_size"]),
+        args.test_local,
+        args.validation
+    )
+
+
+if __name__ == "__main__":
+    main()
