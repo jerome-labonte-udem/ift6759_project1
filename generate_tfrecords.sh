@@ -3,8 +3,10 @@
 #SBATCH --time=12:00:00
 #SBATCH --gres=gpu:k80:1
 #SBATCH --mem=10000M
+#SBATCH --output=./logfile
 
-source /project/cq-training-1/project1/teams/team09/venv/bin/activate
-python /project/cq-training-1/project1/teams/team09/ift6759_project1/src/preprocess_tf_record.py \
-      --cfg_path /project/cq-training-1/project1/teams/team09/ift6759_project1/config_files/data_config_tfrecord.json \
+FOLDER="/project/cq-training-1/project1/teams/team09"
+source ${FOLDER}/venv/bin/activate
+python ${FOLDER}/ift6759_project1/src/preprocess_tf_record.py \
+      --cfg_path ${FOLDER}/ift6759_project1/config_files/data_config_tfrecord.json \
       --validation
