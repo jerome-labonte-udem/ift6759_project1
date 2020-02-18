@@ -63,6 +63,13 @@ def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> 
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
+    print(f"model_path = {model_path}")
+    print(f"config_path = {config_path}")
+    print(f"data_path = {data_path}")
+    print(f"isdir(data_path) = {os.path.isdir(data_path)}")
+    print(f"isdir(join(data_path, 'train')) = {os.path.isdir(os.path.join(data_path, 'train'))}")
+    print(f"isdir(join(data_path, 'validation')) = {os.path.isdir(os.path.join(data_path, 'validation'))}")
+    print(f"isdir(join(data_path, 'tf_records')) = {os.path.isdir(os.path.join(data_path, 'tf_records'))}")
     assert os.path.isdir(data_path), f"invalid data_path directory: {data_path}"
 
     epochs = config["epochs"]
