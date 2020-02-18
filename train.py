@@ -108,30 +108,33 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     model = getattr(model_module, model_name)()
     model(inp_shapes)
     print(model.summary())
-
     # model.build([(None, patch_size[0], patch_size[1],
     #              5), (None, metadata_len)])
 
     compile_params = config["compile_params"]
     model.compile(**compile_params)
 
-    # Stops training when validation accuracy does not go down for "patience" epochs.
-    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min',
-                                                      patience=10, verbose=1)
-
     # Saves only best model for now, could be used to saved every n epochs
-    model_path = os.path.join(save_dir, config["saved_weights_path"])
-    os.makedirs(model_path, exist_ok=True)
+    model_dir = os.path.join(save_dir, config["saved_weights_path"])
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, "weights.{val_loss:.2f}")
     print(f"Saving model {model_name} to path = {model_path}")
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_path, monitor='val_loss', mode='min',
                                                           verbose=1, save_best_only=True, save_weights_only=True)
+
+    # Stops training when validation accuracy does not go down for "patience" epochs.
+    early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min',
+                                                      patience=10, verbose=1)
+    tb_callbacks = get_callbacks_tensorboard(
+        compile_params, model_name, train_batch_size, val_batch_size, save_dir, patch_size
+    )
+
     history = model.fit(
         train_data.batch(batch_size=train_batch_size),
         epochs=epochs,
+        verbose=1,
         validation_data=val_data.batch(batch_size=val_batch_size),
-        callbacks=get_callbacks_tensorboard(
-            compile_params, model_name, train_batch_size, val_batch_size, save_dir, patch_size
-        ).extend([early_stopping, model_checkpoint])
+        callbacks=[*tb_callbacks, model_checkpoint, early_stopping]
     )
 
     if plot_loss:
