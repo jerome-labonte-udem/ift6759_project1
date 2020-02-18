@@ -14,11 +14,18 @@ from src.schema import Catalog, get_target_time_offsets, get_previous_time_offse
 FILE_TF_RECORD = "input_file_month.tfrecord"
 
 
-def shard_dataset(path_save: str, n_shards: int):
-    raw_dataset = tf.data.TFRecordDataset(os.path.join(path_save, FILE_TF_RECORD))
+def shard_dataset(path_save: str):
+    path_tf_record = os.path.join(path_save, FILE_TF_RECORD)
+    assert os.path.exists(path_tf_record), f"Path to tf_record doesn't exist {path_tf_record}"
+    size_file = os.path.getsize(path_tf_record) / (1024 ** 2)
+    n_shards = max(int(size_file // 100), 1)
+    print(f"Splitting tfrecord of size {size_file / 1024:.2f}GB into {n_shards} shards")
+    raw_dataset = tf.data.TFRecordDataset(path_tf_record)
     for i in range(n_shards):
         writer = tf.data.experimental.TFRecordWriter(os.path.join(path_save, f"output_file-part-{i}.tfrecord"))
         writer.write(raw_dataset.shard(n_shards, i))
+    # Delete original (non-sharded record)
+    os.remove(path_tf_record)
 
 
 def _bytes_feature(value):
@@ -72,9 +79,9 @@ def preprocess_tfrecords(
         path_save = os.path.join(path_save, "train")
         df = df.loc[df.index.year < 2015]
         if test_local:
-            df = df.loc[df.index.year == 2010]
+            df = df.loc[df.index.year == 2012]
             df = df.loc[df.index.month == 1]
-            df = df.loc[df.index.day == 1]
+            # df = df.loc[df.index.day == 9]
 
     os.makedirs(path_save, exist_ok=True)
 
@@ -100,9 +107,6 @@ def preprocess_tfrecords(
         df, target_datetimes, get_target_time_offsets(), previous_time_offsets,
         batch_size=batch_size, data_directory=data_path, patch_size=patch_size
     )
-    # approx 0.1MB - per target_datetime --> divide by 1000 to get around 100MB per shard
-    n_shards = max(len(target_datetimes) // 1000, 1)
-    print(f"Splitting the data in {n_shards} shards")
     path_tf_record = os.path.join(path_save, FILE_TF_RECORD)
 
     with tf.io.TFRecordWriter(path_tf_record) as writer:
@@ -127,9 +131,8 @@ def preprocess_tfrecords(
                 writer.write(example)
 
     # Split dataset in n_shards
-    shard_dataset(path_save, n_shards)
-    # Delete original (non-sharded record)
-    os.remove(path_tf_record)
+    shard_dataset(path_save)
+    print("Done !")
 
 
 def main():
@@ -143,8 +146,12 @@ def main():
     parser.add_argument(
         '--test_local', dest='test_local', action='store_true'
     )
+    parser.add_argument(
+        '--only_shard', dest='only_shard', action='store_true'
+    )
     parser.set_defaults(validation=False)
     parser.set_defaults(test_local=False)
+    parser.set_defaults(only_shard=False)
 
     args = parser.parse_args()
 
@@ -152,14 +159,21 @@ def main():
     with open(args.cfg_path, "r") as config_file:
         config = json.load(config_file)
 
-    preprocess_tfrecords(
-        config["dataframe_path"],
-        config["data_path"],
-        config["save_path"],
-        (config["patch_size"], config["patch_size"]),
-        args.test_local,
-        args.validation
-    )
+    if args.only_shard:
+        # If the code bug/stop during sharding, run this
+        if args.validation:
+            shard_dataset(os.path.join(config["save_path"], "validation"))
+        else:
+            shard_dataset(os.path.join(config["save_path"], "train"))
+    else:
+        preprocess_tfrecords(
+            config["dataframe_path"],
+            config["data_path"],
+            config["save_path"],
+            (config["patch_size"], config["patch_size"]),
+            args.test_local,
+            args.validation
+        )
 
 
 if __name__ == "__main__":
