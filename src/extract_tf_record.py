@@ -68,7 +68,7 @@ def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int):
 
         return inputs, target
 
-    return raw_image_dataset.map(_parse_image_function)
+    return raw_image_dataset.map(_parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 
 def filter_fn(inputs, target):
@@ -89,6 +89,6 @@ def tfrecord_dataloader(
     :return:
     """
     data_loader = parse_dataset(dir_shards, cnn_2d, patch_size)
-    data_loader = data_loader.filter(filter_fn)
+    # data_loader = data_loader.filter(filter_fn)
     data_loader.prefetch(tf.data.experimental.AUTOTUNE)
     return data_loader

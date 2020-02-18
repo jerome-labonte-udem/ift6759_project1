@@ -64,6 +64,7 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
+    print(f"Data path is at {data_path}")
     assert os.path.isdir(data_path), f"invalid data_path directory: {data_path}"
 
     os.makedirs(save_dir, exist_ok=True)
