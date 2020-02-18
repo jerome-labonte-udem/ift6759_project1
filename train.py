@@ -117,7 +117,7 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     # Saves only best model for now, could be used to saved every n epochs
     model_dir = os.path.join(save_dir, config["saved_weights_path"])
     os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, "weights.{val_loss:.2f}")
+    model_path = os.path.join(model_dir, f"weights.{model_name}")
     print(f"Saving model {model_name} to path = {model_path}")
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_path, monitor='val_loss', mode='min',
                                                           verbose=1, save_best_only=True, save_weights_only=True)
