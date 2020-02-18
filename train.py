@@ -30,8 +30,9 @@ session = InteractiveSession(config=tf_config)
 
 
 def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch_size: int, val_batch_size: int,
-                              patch_size: Tuple[int, int]) -> List:
-    log_file = os.path.join(LOG_DIR, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+                              save_dir: str, patch_size: Tuple[int, int]) -> List:
+    log_file = os.path.join(save_dir, LOG_DIR, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    print(f"Saving logs to path {log_file}")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
         log_dir=log_file,
         histogram_freq=1
@@ -51,11 +52,11 @@ def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch
     ]
 
 
-def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> None:
+def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> None:
     """
     Train a model and save the weights
     :param data_path: directory of tfrecords which includes train and validation folders
-    :param model_path: path where model weigths will be saved
+    :param save_dir: path to directory to save weights and logs
     :param config_path: path to json config file
     :param plot_loss: plot losses at end of training if True
     """
@@ -64,6 +65,9 @@ def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> 
         config = json.load(config_file)
 
     assert os.path.isdir(data_path), f"invalid data_path directory: {data_path}"
+
+    os.makedirs(save_dir, exist_ok=True)
+    print(f"Saving model and logfiles at {save_dir}")
 
     epochs = config["epochs"]
     train_batch_size = config["train_batch_size"]
@@ -113,7 +117,11 @@ def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> 
     # Stops training when validation accuracy does not go down for "patience" epochs.
     early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min',
                                                       patience=10, verbose=1)
+
     # Saves only best model for now, could be used to saved every n epochs
+    model_path = os.path.join(save_dir, config["saved_weights_path"])
+    os.makedirs(model_path, exist_ok=True)
+    print(f"Saving model {model_name} to path = {model_path}")
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_path, monitor='val_loss', mode='min',
                                                           verbose=1, save_best_only=True, save_weights_only=True)
     history = model.fit(
@@ -121,7 +129,7 @@ def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> 
         epochs=epochs,
         validation_data=val_data.batch(batch_size=val_batch_size),
         callbacks=get_callbacks_tensorboard(
-            compile_params, model_name, train_batch_size, val_batch_size, patch_size
+            compile_params, model_name, train_batch_size, val_batch_size, save_dir, patch_size
         ).extend([early_stopping, model_checkpoint])
     )
 
@@ -136,8 +144,8 @@ def main(model_path: str, config_path: str, data_path: str, plot_loss: bool) -> 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str,
-                        help="path where the model should be saved")
+    parser.add_argument("--save_dir", type=str,
+                        help="path of directory where model and logfiles should be saved")
     parser.add_argument("--cfg_path", type=str,
                         help="path to the JSON config file used to define train parameters")
     parser.add_argument("--data_path", type=str, help="directory of the data")
@@ -145,7 +153,7 @@ if __name__ == "__main__":
                         action="store_true")
     args = parser.parse_args()
     main(
-        model_path=args.model_path,
+        save_dir=args.save_dir,
         config_path=args.cfg_path,
         data_path=args.data_path,
         plot_loss=args.plot

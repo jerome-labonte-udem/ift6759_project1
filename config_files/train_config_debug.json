@@ -4,7 +4,7 @@
   "train_batch_size": 32,
   "val_batch_size": 64,
   "model_name": "CNN2D",
-  "saved_weights_path": "tests/saved_models/cnn_2d/",
+  "saved_weights_path": "saved_models/cnn_2d/",
   "patch_size": 32,
   "compile_params":{"loss":"mse", "optimizer":"adam"},
   "train_stations": {
