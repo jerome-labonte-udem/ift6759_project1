@@ -23,7 +23,7 @@ unzip "${SLURM_TMPDIR}/${ZIP_FILE}" -d "${SLURM_TMPDIR}"
 python ${FOLDER}/ift6759_project1/train.py \
         --model_path "${SAVE_PATH}" \
         --cfg_path "${FOLDER}/ift6759_project1/config_files/train_config_philippe.json" \
-        --data_path "${SLURM_TMPDIR}/"
+        --data_path "${SLURM_TMPDIR}/tf_records"
 
 # 5. Copy whatever you want to save on $SCRATCH
 # cp "${SLURM_TMPDIR}/saved_models/vgg2d" ${SAVE_PATH}
