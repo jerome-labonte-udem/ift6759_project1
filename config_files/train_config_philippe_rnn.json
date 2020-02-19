@@ -1,10 +1,10 @@
 {
   "dataframe_path": "./data/catalog.helios.public.20100101-20160101.pkl",
   "epochs": 100,
-  "train_batch_size": 512,
-  "val_batch_size": 1024,
-  "model_name": "VGG2D",
-  "saved_weights_path": "saved_models/vgg_2d",
+  "train_batch_size": 128,
+  "val_batch_size": 256,
+  "model_name": "ConvLSTM",
+  "saved_weights_path": "saved_models/rnn",
   "patch_size": 64,
   "compile_params":{"loss":"mse", "optimizer":"adam"},
   "train_stations": {
@@ -31,7 +31,11 @@
     "P0DT3H0M0S",
     "P0DT6H0M0S"
   ],
-    "previous_time_offsets": [
+   "previous_time_offsets": [
+    "P0DT3H0M0S",
+    "P0DT2H15M0S",
+    "P0DT1H30M0S",
+    "P0DT0H45M0S",
     "P0DT0H0M0S"
   ]
 }
