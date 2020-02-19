@@ -74,7 +74,7 @@ def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int):
 def filter_fn(inputs, target):
     # remove all samples that have NaN values
     cond = tf.reduce_any(tf.math.is_nan(inputs[1])) or tf.reduce_any(tf.math.is_nan(inputs[2])) \
-           or tf.reduce_any(tf.math.is_nan(inputs[3]))
+           or tf.reduce_any(tf.math.is_nan(target))
     return not cond
 
 
