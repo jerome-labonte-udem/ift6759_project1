@@ -34,10 +34,10 @@ class CNN2D(tf.keras.Model):
         """
         img, past_metadata, future_metadata = inputs  # split images and metadatas
         # Remove timesteps dimensions from sequences of size 1
-        patch_size = img.shape[2]
-        n_channels = img.shape[4]
+        patch_size = img.shape[-2]
+        n_channels = img.shape[-1]
         img = tf.reshape(img, (-1, patch_size, patch_size, n_channels))
-        past_metadata = tf.reshape(past_metadata, (-1, past_metadata.shape[2]))
+        past_metadata = tf.reshape(past_metadata, (-1, past_metadata.shape[-1]))
         x = self.conv_1(img)
         x = self.pool_1(x)
         x = self.conv_2(x)
@@ -50,5 +50,4 @@ class CNN2D(tf.keras.Model):
         x = self.FC2(x)
         # Create 4 outputs for t0, t0+1, t0+3 and t0+6
         t0 = self.t0(x)
-
         return t0

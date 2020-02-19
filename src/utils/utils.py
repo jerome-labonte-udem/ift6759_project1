@@ -12,7 +12,6 @@ def compress_array(
         compr_type: typing.Optional[str] = "auto",
 ) -> bytes:
     """Compresses the provided numpy array according to a predetermined strategy.
-
     If ``compr_type`` is 'auto', the best strategy will be automatically selected based on the input
     array type. If ``compr_type`` is an empty string (or ``None``), no compression will be applied.
     """
@@ -63,10 +62,8 @@ def decompress_array(
         shape: typing.Optional[typing.Union[typing.List, typing.Tuple]] = None,
 ) -> np.ndarray:
     """Decompresses the provided numpy array according to a predetermined strategy.
-
     If ``compr_type`` is 'auto', the correct strategy will be automatically selected based on the array's
     bytecode prefix. If ``compr_type`` is an empty string (or ``None``), no decompression will be applied.
-
     This function can optionally convert and reshape the decompressed array, if needed.
     """
     compr_types = ["lz4", "float16+lz4", "uint8+jpg", "uint8+jp2", "uint16+jp2"]

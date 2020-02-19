@@ -9,7 +9,6 @@ from typing import Set, List, Tuple, Optional
 from _collections import OrderedDict
 import datetime
 import h5py
-import random
 import logging
 import json
 from src.schema import Catalog, Station
@@ -73,7 +72,8 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
     # MAX_CLEARSKY_GHI = 1045.112902
     past_metadatas = []
     future_metadatas = []
-    place_holder = 0.0
+    place_holder_past = [0.] * 5
+    place_holder_future = 0
     for begin in target_datetimes:
         t0 = pd.Timestamp(begin)
         for station in stations.keys():
@@ -93,8 +93,8 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
                     # so these timestamps will be removed from get_labels()
                     # Probably trying to look in 2016 but we don't have access to these values
-                    print(f"KeyError: {err}")
-                    metadata_sequence.append(place_holder)
+                    logging.debug(f"KeyError: {err}")
+                    metadata_sequence.append(place_holder_past)
             past_metadatas.append(metadata_sequence)
 
             future_metadata = []
@@ -105,80 +105,24 @@ def get_metadata(df: pd.DataFrame, target_datetimes: List[datetime.datetime],
                     # If CLEARSKY_GHI not available in df -> GHI not available as well
                     # so these timestamps will be removed from get_labels()
                     # Probably trying to look in 2016 but we don't have access to these values
-                    print(f"KeyError: {err}")
-                    future_metadata.append(place_holder)
+                    logging.debug(f"KeyError: {err}")
+                    future_metadata.append(place_holder_future)
             future_metadatas.append(future_metadata)
     return past_metadatas, future_metadatas
-
-
-def get_hdf5_samples_from_day(
-        df: pd.DataFrame,
-        target_datetimes: List[datetime.datetime],
-        previous_time_offsets: List[datetime.timedelta],
-        patch_size: Tuple[int, int],
-        directory: Optional[str] = None,
-        stations: OrderedDict = Station.COORDS,
-) -> Tuple[List[np.array], List[int]]:
-    """
-    This is for train/validation time only.
-    Assume each target datetime has same path in the dataframe (come from same day)
-    Get len(target_days) sample from only one .hdf5 file
-    :param previous_time_offsets: *Important* Assume Chronological order of deltas (e.g. -12, -6, -3, -1)
-    :param stations:
-    :param patch_size:
-    :param target_datetimes:
-    :param df: catalog.pkl
-    :param directory: If directory is not provided (None), use the path from catalog dataframe,
-    else use the directory provided but with same filename
-    :return: Tuple[patches as np,array, list of index of invalid target_datimes (no picture)]
-    """
-    # path should be the same for all datetimes
-    t0 = pd.Timestamp(target_datetimes[0])
-    path = df.at[t0, Catalog.hdf5_8bit_path]
-
-    if directory is None:
-        hdf5_path = path
-    else:
-        folder, filename = os.path.split(path)
-        hdf5_path = os.path.join(directory, filename)
-
-    sample_offsets = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
-
-    # Make sure the file of previous day exists !
-    f_h5_before = _get_path_yesterday(t0, df, path, directory)
-    h5_previous = None if f_h5_before is None else HDF5File(f_h5_before)
-
-    patches = []
-    # List of invalid indexes in array, (no data, invalid path, etc.)
-    invalid_indexes = []
-
-    with h5py.File(hdf5_path, "r") as f_h5:
-        h5 = HDF5File(f_h5)
-        for i, offset in enumerate(sample_offsets):
-            patches_index = _get_one_sample(
-                h5, target_datetimes[i], offset, stations, patch_size, previous_time_offsets, h5_previous
-            )
-            if patches_index is None or len(patches_index) == 0:
-                invalid_indexes.append(i)
-            else:
-                patches.extend(patches_index)
-
-    if f_h5_before is not None:
-        f_h5_before.close()
-
-    return patches, invalid_indexes
 
 
 def get_hdf5_samples_list_datetime(
         df: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
         previous_time_offsets: List[datetime.timedelta],
+        test_time: bool,
         patch_size: Tuple[int, int],
         directory: Optional[str] = None,
         stations: OrderedDict = Station.COORDS,
-) -> Tuple[List[np.array], List[int]]:
+) -> Tuple[List[np.array], List[int], List, List]:
     """
     Open one .hdf5 file for each target_datetime provided
+    :param test_time: if test_time, we are never skipping a data point
     :param previous_time_offsets:
     :param stations:
     :param patch_size:
@@ -191,6 +135,8 @@ def get_hdf5_samples_list_datetime(
     paths = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_path] for t in target_datetimes]
     sample_offsets = [df.at[pd.Timestamp(t), Catalog.hdf5_8bit_offset] for t in target_datetimes]
     patches = []
+    # min and max of arrays that was used to compress them
+    a_min, a_max = [], []
     # List of invalid indexes in array, (no data, invalid path, etc.)
     invalid_indexes = []
     for i, path in enumerate(paths):
@@ -207,18 +153,21 @@ def get_hdf5_samples_list_datetime(
 
         with h5py.File(hdf5_path, "r") as f_h5:
             h5 = HDF5File(f_h5)
-            patches_index = _get_one_sample(
-                h5, target_datetimes[i], sample_offsets[i], stations, patch_size, previous_time_offsets, h5_previous
+            patches_index, min_index, max_index = _get_one_sample(
+                h5, target_datetimes[i], sample_offsets[i], test_time, stations,
+                patch_size, previous_time_offsets, h5_previous
             )
             if patches_index is None or len(patches_index) == 0:
                 invalid_indexes.append(i)
             else:
                 patches.extend(patches_index)
+                a_min.extend(min_index)
+                a_max.extend(max_index)
 
         if f_h5_before is not None:
             f_h5_before.close()
 
-    return patches, invalid_indexes
+    return patches, invalid_indexes, a_min, a_max
 
 
 def _get_path_yesterday(t0: pd.Timestamp, df: pd.DataFrame, path: str, directory: str) -> Optional[h5py.File]:
@@ -246,16 +195,19 @@ def _get_one_sample(
         h5: HDF5File,
         target_datetime: datetime.datetime,
         t0_offset: int,
+        test_time: bool,
         stations: OrderedDict,
         patch_size: Tuple[int, int],
         previous_time_offsets: List[datetime.timedelta],
         h5_previous: HDF5File = None,
-):
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
     patches_index = []
-    patch = h5.get_image_patches(t0_offset, stations, patch_size=patch_size)
+    # Store min and max to recompress array in tfrecords
+    min_index, max_index = [], []
+    patch = h5.get_image_patches(t0_offset, test_time, stations, patch_size=patch_size)
 
     if patch is None or len(patch) == 0:  # t0 image is invalid
-        return None
+        return None, None, None
 
     previous_offsets = HDF5File.get_offsets(
         pd.Timestamp(target_datetime), previous_time_offsets
@@ -266,10 +218,17 @@ def _get_one_sample(
             # Looking in file from day before
             if h5_previous is None:
                 patch_prev = None
+                # if no image, we use global minimum and global maximum
+                min_prev = len(patch) * [list(np.reshape(HDF5File.MIN_CHANNELS, 5))]
+                max_prev = len(patch) * [list(np.reshape(HDF5File.MAX_CHANNELS, 5))]
             else:
-                patch_prev = h5_previous.get_image_patches(prev_offset, stations, patch_size=patch_size)
+                patch_prev = h5_previous.get_image_patches(prev_offset, test_time, stations, patch_size=patch_size)
+                min_prev = len(patch) * [[h5_previous.orig_min(channel) for channel in HDF5File.CHANNELS]]
+                max_prev = len(patch) * [[h5_previous.orig_max(channel) for channel in HDF5File.CHANNELS]]
         else:
-            patch_prev = h5.get_image_patches(prev_offset, stations, patch_size=patch_size)
+            patch_prev = h5.get_image_patches(prev_offset, test_time, stations, patch_size=patch_size)
+            min_prev = len(patch) * [[h5.orig_min(channel) for channel in HDF5File.CHANNELS]]
+            max_prev = len(patch) * [[h5.orig_max(channel) for channel in HDF5File.CHANNELS]]
 
         if patch_prev is None or len(patch_prev) == 0:
             # No image available at t0 - offset
@@ -277,26 +236,20 @@ def _get_one_sample(
         else:
             patches_index.insert(len(patches_index) - 1, patch_prev)
 
+        min_index.insert(len(patches_index) - 1, min_prev)
+        max_index.insert(len(patches_index) - 1, max_prev)
+
     patches_index = np.stack(patches_index, axis=-1)
+    min_index = np.stack(min_index, axis=-1)
+    max_index = np.stack(max_index, axis=-1)
+    # output should be [len(stations), len(previous_time_offsets), 1, 1, n_channels]
+    for i in [2, 3]:
+        min_index = np.expand_dims(min_index, i)
+        max_index = np.expand_dims(max_index, i)
+
     # We want size (len_stations, len(previous_time_offsets), patch_size, patch_size, n_channels)
     patches_index = np.transpose(patches_index, (0, 4, 1, 2, 3))
-    return patches_index
-
-
-def random_timestamps_from_day(df: pd.DataFrame, target_day: datetime.datetime,
-                               batch_size) -> List[datetime.datetime]:
-    """
-    Randomly sample batch_size timestamps from the target_day
-    ** filter_timestamps_train_time has to be called on dataframe before entering here **
-    :param df: catalog.pkl
-    :param target_day: datetime from the day of the hdf5 file we want to open (hour doesn't matter)
-    :param batch_size: number of timestamps we want to sample
-    :return: list of random timestamps from given day
-    """
-    path_day = df.at[target_day, Catalog.hdf5_8bit_path]
-    photos = df.loc[(df[Catalog.hdf5_8bit_path] == path_day) & (df[Catalog.is_invalid] == 0)]
-    random_timestamps = random.choices(photos.index, k=batch_size)
-    return random_timestamps
+    return patches_index, min_index, max_index
 
 
 def generate_random_timestamps_for_validation(
@@ -306,6 +259,7 @@ def generate_random_timestamps_for_validation(
 ):
     """
     One time function to generate a validation set of size X
+    :param sampling:
     :param df: catalog.pkl
     :param n_per_day: number of timestamps to sample per day of 2015
     :return:

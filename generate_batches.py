@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.data_pipeline import hdf5_dataloader_list_of_days
+from src.data_pipeline import hdf5_dataloader_test
 from src.schema import Catalog
 
 
@@ -58,27 +58,27 @@ def main(pickle_path: str,
     target_time_offsets = [pd.Timedelta(d).to_pytimedelta() for d in config["target_time_offsets"]]
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
 
-    train_data = hdf5_dataloader_list_of_days(dataframe,
-                                              train_datetimes,
-                                              target_time_offsets=target_time_offsets,
-                                              data_directory=Path(data_path),
-                                              batch_size=train_batch_size,
-                                              subset="valid",
-                                              patch_size=patch_size,
-                                              stations=train_stations,
-                                              previous_time_offsets=previous_time_offsets
-                                              )
+    train_data = hdf5_dataloader_test(dataframe,
+                                      train_datetimes,
+                                      target_time_offsets=target_time_offsets,
+                                      data_directory=Path(data_path),
+                                      batch_size=train_batch_size,
+                                      subset="valid",
+                                      patch_size=patch_size,
+                                      stations=train_stations,
+                                      previous_time_offsets=previous_time_offsets
+                                      )
 
-    val_data = hdf5_dataloader_list_of_days(dataframe,
-                                            val_datetimes,
-                                            target_time_offsets=target_time_offsets,
-                                            data_directory=Path(data_path),
-                                            batch_size=val_batch_size,
-                                            subset="valid",
-                                            patch_size=patch_size,
-                                            stations=val_stations,
-                                            previous_time_offsets=previous_time_offsets
-                                            )
+    val_data = hdf5_dataloader_test(dataframe,
+                                    val_datetimes,
+                                    target_time_offsets=target_time_offsets,
+                                    data_directory=Path(data_path),
+                                    batch_size=val_batch_size,
+                                    subset="valid",
+                                    patch_size=patch_size,
+                                    stations=val_stations,
+                                    previous_time_offsets=previous_time_offsets
+                                    )
 
     # dump to pickle
     for i, minibatch in enumerate(train_data):

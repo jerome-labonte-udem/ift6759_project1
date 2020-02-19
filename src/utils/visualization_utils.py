@@ -391,9 +391,6 @@ def visualize_daytime_by_hour(df: pd.DataFrame, stations: typing.List[str]) -> N
     for i, station in enumerate(stations):
         df_stat = df.loc[df[Catalog.daytime(station)] == 1][Catalog.daytime(station)]
         plt.figure(figsize=(7, 3))
-
-        print(type(df_stat.index))
-        print(df_stat.head())
         ok = df_stat.groupby(df_stat.index.hour).count()
         ax = ok.plot(kind="bar")
         ax.set_facecolor('#eeeeee')

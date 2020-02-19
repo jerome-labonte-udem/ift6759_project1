@@ -11,8 +11,8 @@ class HDF5File:
     CHANNELS = ["ch1", "ch2", "ch3", "ch4", "ch6"]
 
     # Precomputed min/max on 2010-2014 data for all channels
-    MAX_CHANNELS = np.array([3.04, 341.59998, 295.11, 341.18, 321.78]).reshape((5, 1, 1))
-    MIN_CHANNELS = np.array([-0.01, 0, 0, 0, 0]).reshape((5, 1, 1))
+    MAX_CHANNELS = np.array([3.04, 341.59998, 295.11, 341.18, 321.78]).reshape((1, 1, 1, 5))
+    MIN_CHANNELS = np.array([-0.01, 0, 0, 0, 0]).reshape((1, 1, 1, 5))
 
     def __init__(self, hdf5_file):
         self._file = hdf5_file
@@ -47,12 +47,7 @@ class HDF5File:
         return self.end_idx - self.start_idx
 
     @staticmethod
-    def min_max_normalization_0_1(array: np.array):
-        # Min-max normalisation in the [0, 1] range
-        return (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)
-
-    @staticmethod
-    def min_max_normalization_min1_1(array: np.array):
+    def min_max_normalization_min1_1(array):
         # Min-max normalisation in the [-1, 1] range
         return (2 * (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)) - 1
 
@@ -128,10 +123,12 @@ class HDF5File:
     def get_image_patches(
             self,
             sample_idx: int,
+            test_time: bool,
             stations_coords: collections.OrderedDict,
-            patch_size: Tuple[int, int] = (16, 16)
+            patch_size: Tuple[int, int] = (16, 16),
     ) -> np.array:
         """
+        :param test_time:
         :param sample_idx: index in the hdf5 file
         :param stations_coords: dictionnary of str -> (coord_x, coord_y) in the numpy array
         :param patch_size: size of the image crop that we will take
@@ -151,12 +148,14 @@ class HDF5File:
             # Even if a channel is missing or is NaN, return an array of zeros to always predict
             # something at validation/test time
             if data is None or np.isnan(data).any():
-                channel_data.append(np.zeros(Catalog.size_image))
+                if test_time:  # At test time we always have to predict
+                    channel_data.append(np.zeros(Catalog.size_image))
+                else:  # At train time, we skip images that contain NaNs
+                    return None
             else:
                 channel_data.append(data)
 
         channel_data = np.asarray(channel_data)  # transform to np.array for multidimensional slicing
-        channel_data = self.min_max_normalization_min1_1(channel_data)
 
         patches = []
         # Stations_coords is OrderedDict so won't mess up the order

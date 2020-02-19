@@ -1,11 +1,11 @@
 {
   "dataframe_path": "./data/catalog.helios.public.20100101-20160101.pkl",
-  "epochs": 100,
-  "train_batch_size": 512,
-  "val_batch_size": 1024,
-  "model_name": "VGG2D",
-  "saved_weights_path": "saved_models/vgg_2d/",
-  "patch_size": 64,
+  "epochs": 2,
+  "train_batch_size": 32,
+  "val_batch_size": 64,
+  "model_name": "CNN2D",
+  "saved_weights_path": "saved_models/cnn_2d/",
+  "patch_size": 32,
   "compile_params":{"loss":"mse", "optimizer":"adam"},
   "train_stations": {
     "BND": [40.05192, -88.37309, 230],

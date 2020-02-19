@@ -61,7 +61,7 @@ class TestHDF5File(unittest.TestCase):
         patch_size = (16, 16)
         with h5py.File(self.hdf5_path, "r") as f_h5_data:
             h5 = HDF5File(f_h5_data)
-            patches = h5.get_image_patches(sample_idx, Station.COORDS, patch_size=patch_size)
+            patches = h5.get_image_patches(sample_idx, False, Station.COORDS, patch_size=patch_size)
             for patch in patches:
                 self.assertEqual((patch_size[0], patch_size[1], len(h5.CHANNELS)), patch.shape)
 

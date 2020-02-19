@@ -12,6 +12,11 @@ __pycache__/
 !/data/hdf5v7_8bit/2012.01.08.0800.h5
 !/data/hdf5v7_8bit/2012.01.09.0800.h5
 
+/data/tf_records/*
+/data/tf_records_backup/*
+slurm*
+2020*
+vgg_2d/
 
 # pycharm
 .idea/
