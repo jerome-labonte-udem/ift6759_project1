@@ -92,5 +92,5 @@ def tfrecord_dataloader(
     """
     data_loader = parse_dataset(dir_shards, cnn_2d, patch_size)
     data_loader = data_loader.filter(filter_fn)
-    data_loader.prefetch(tf.data.experimental.AUTOTUNE)
+    data_loader = data_loader.prefetch(tf.data.experimental.AUTOTUNE)
     return data_loader
