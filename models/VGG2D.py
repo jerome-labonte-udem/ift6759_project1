@@ -12,7 +12,6 @@ class VGG2D(tf.keras.Model):
     https://arxiv.org/abs/1901.04881
     ** Not Finished **
     """
-
     def __init__(self):
         """
         Define model layers

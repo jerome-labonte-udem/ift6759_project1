@@ -3,7 +3,6 @@
 #SBATCH --time=12:00:00
 #SBATCH --gres=gpu:k80:1
 #SBATCH --mem=10000M
-#SBATCH --output=./logfile
 
 FOLDER="/project/cq-training-1/project1/teams/team09"
 source "${FOLDER}/venv/bin/activate"
