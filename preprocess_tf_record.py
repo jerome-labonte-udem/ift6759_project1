@@ -122,7 +122,8 @@ def preprocess_tfrecords(
 
             # Write to TFRecord
             for sample, p, f, min_idx, max_idx, t in zip(samples, past_metadata, future_metadata, mins, maxs, target):
-                if tf.reduce_any(tf.math.is_nan(sample)):
+                if tf.reduce_any(tf.math.is_nan(sample)) or tf.reduce_any(tf.math.is_nan(p)) \
+                        or tf.reduce_any(tf.math.is_nan(f)) or tf.reduce_any(tf.math.is_nan(t)):
                     continue
                 sample = sample.numpy()
                 min_idx, max_idx = min_idx.numpy(), max_idx.numpy()

@@ -73,7 +73,9 @@ def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int):
 
 def filter_fn(inputs, target):
     # remove all samples that have NaN values
-    return not tf.reduce_any(tf.math.is_nan(inputs[0]))
+    cond = tf.reduce_any(tf.math.is_nan(inputs[1])) or tf.reduce_any(tf.math.is_nan(inputs[2])) \
+           or tf.reduce_any(tf.math.is_nan(inputs[3]))
+    return not cond
 
 
 def tfrecord_dataloader(
@@ -89,6 +91,6 @@ def tfrecord_dataloader(
     :return:
     """
     data_loader = parse_dataset(dir_shards, cnn_2d, patch_size)
-    # data_loader = data_loader.filter(filter_fn)
+    data_loader = data_loader.filter(filter_fn)
     data_loader.prefetch(tf.data.experimental.AUTOTUNE)
     return data_loader
