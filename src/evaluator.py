@@ -69,7 +69,7 @@ def prepare_dataloader(
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
     data_loader = hdf5_dataloader_test(
         dataframe, target_datetimes, target_time_offsets, data_directory=data_directory,
-        batch_size=16, stations=stations, subset="test", previous_time_offsets=previous_time_offsets,
+        batch_size=config["batch_size"], stations=stations, subset="test", previous_time_offsets=previous_time_offsets,
         patch_size=(config["patch_size"], config["patch_size"])
     )
     # MODIFY ABOVE
@@ -291,7 +291,6 @@ if __name__ == "__main__":
         '-d', '--data_directory', type=str, default=None,
         help="specify directory of data if its not the same as specified in the catalog.pkl"
     )
-    parser.set_defaults(local=False)
 
     args = parser.parse_args()
     main(

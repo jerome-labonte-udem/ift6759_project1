@@ -4,5 +4,6 @@
   ],
   "model_name": "VGG2D",
   "saved_weights_path": "saved_models/vgg_2d/weights.VGG2D",
-  "patch_size": 64
+  "patch_size": 64,
+  "batch_size": 32
 }
