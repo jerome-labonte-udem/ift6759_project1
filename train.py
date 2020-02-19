@@ -28,6 +28,9 @@ tf_config = ConfigProto()
 tf_config.gpu_options.allow_growth = True
 session = InteractiveSession(config=tf_config)
 
+print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
+# tf.debugging.set_log_device_placement(True)
+
 
 def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch_size: int, val_batch_size: int,
                               save_dir: str, patch_size: Tuple[int, int]) -> List:

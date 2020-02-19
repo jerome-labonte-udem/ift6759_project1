@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import tqdm
-from src.data_pipeline import hdf5_dataloader_list_of_days
+from src.data_pipeline import hdf5_dataloader_test
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -27,6 +27,7 @@ def prepare_dataloader(
         stations: typing.Dict[typing.AnyStr, typing.Tuple[float, float, float]],
         target_time_offsets: typing.List[datetime.timedelta],
         config: typing.Dict[typing.AnyStr, typing.Any],
+        data_directory: typing.Optional[str]
 ) -> tf.data.Dataset:
     """This function should be modified in order to prepare & return your own data loader.
 
@@ -56,6 +57,7 @@ def prepare_dataloader(
         config: configuration dictionary holding any extra parameters that might be required by the user. These
             parameters are loaded automatically if the user provided a JSON file in their submission. Submitting
             such a JSON file is completely optional, and this argument can be ignored if not needed.
+        data_directory: specify directory to test on local data
 
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
@@ -65,11 +67,11 @@ def prepare_dataloader(
 
     # MODIFY BELOW
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
-    # TODO: Change data_directory for test time
-    data_loader = hdf5_dataloader_list_of_days(dataframe, target_datetimes,
-                                               target_time_offsets, data_directory=config["data_path"],
-                                               batch_size=32, stations=stations, subset="test",
-                                               previous_time_offsets=previous_time_offsets)
+    data_loader = hdf5_dataloader_test(
+        dataframe, target_datetimes, target_time_offsets, data_directory=data_directory,
+        batch_size=16, stations=stations, subset="test", previous_time_offsets=previous_time_offsets,
+        patch_size=(config["patch_size"], config["patch_size"])
+    )
     # MODIFY ABOVE
 
     return data_loader
@@ -132,6 +134,7 @@ def generate_all_predictions(
         target_time_offsets: typing.List[datetime.timedelta],
         dataframe: pd.DataFrame,
         user_config: typing.Dict[typing.AnyStr, typing.Any],
+        data_directory: typing.Optional[str]
 ) -> np.ndarray:
     """Generates and returns model predictions given the data prepared by a data loader."""
     # we will create one data loader per station to make sure we avoid mixups in predictions
@@ -140,7 +143,8 @@ def generate_all_predictions(
         # usually, we would create a single data loader for all stations, but we just want to avoid trouble...
         stations = {station_name: target_stations[station_name]}
         print(f"preparing data loader & model for station '{station_name}' ({station_idx + 1}/{len(target_stations)})")
-        data_loader = prepare_dataloader(dataframe, target_datetimes, stations, target_time_offsets, user_config)
+        data_loader = prepare_dataloader(dataframe, target_datetimes, stations,
+                                         target_time_offsets, user_config, data_directory)
         model = prepare_model(stations, target_time_offsets, user_config)
         station_preds = generate_predictions(data_loader, model, pred_count=len(target_datetimes))
         if len(station_preds) != len(target_datetimes):
@@ -197,6 +201,7 @@ def parse_nighttime_flags(
 def main(
         preds_output_path: typing.AnyStr,
         admin_config_path: typing.AnyStr,
+        data_directory: typing.Optional[typing.AnyStr] = None,
         user_config_path: typing.Optional[typing.AnyStr] = None,
         stats_output_path: typing.Optional[typing.AnyStr] = None,
 ) -> None:
@@ -237,7 +242,7 @@ def main(
         predictions = np.asarray([float(ghi) for p in predictions for ghi in p.split(",")])
     else:
         predictions = generate_all_predictions(target_stations, target_datetimes,
-                                               target_time_offsets, dataframe, user_config)
+                                               target_time_offsets, dataframe, user_config, data_directory)
         with open(preds_output_path, "w") as fd:
             for pred in predictions:
                 fd.write(",".join([f"{v:0.03f}" for v in pred.tolist()]) + "\n")
@@ -281,10 +286,18 @@ if __name__ == "__main__":
                         help="path to the JSON config file used to store user model/dataloader parameters")
     parser.add_argument("-s", "--stats_output_path", type=str, default=None,
                         help="path where the prediction stats should be saved (for benchmarking)")
+
+    parser.add_argument(
+        '-d', '--data_directory', type=str, default=None,
+        help="specify directory of data if its not the same as specified in the catalog.pkl"
+    )
+    parser.set_defaults(local=False)
+
     args = parser.parse_args()
     main(
         preds_output_path=args.preds_out_path,
         admin_config_path=args.admin_cfg_path,
         user_config_path=args.user_cfg_path,
         stats_output_path=args.stats_output_path,
+        data_directory=args.data_directory
     )
