@@ -41,7 +41,7 @@ class ConvLSTM(tf.keras.Model):
                                                      return_sequences=True)
         self.bn2 = tf.keras.layers.BatchNormalization()
 
-        # Option to add 3rd conv_lstm layer (shit 2015 got best results w 2 and 3)
+        # Option to add 3rd conv_lstm layer (Shi 2015 got best results w 2 and 3)
         # self.convlstm_3 = tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3),
         #           input_shape=(None, 64, 64, 5), padding='same',
         #           return_sequences=True)
