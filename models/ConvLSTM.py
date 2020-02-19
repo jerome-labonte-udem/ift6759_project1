@@ -35,19 +35,19 @@ class ConvLSTM(tf.keras.Model):
                                                      return_sequences=True)
         self.bn1 = tf.keras.layers.BatchNormalization()
 
-        self.convlstm_2 = tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3),
-                                                     input_shape=(None, 64, 64, 5),
-                                                     padding='same',
-                                                     return_sequences=True)
-        self.bn2 = tf.keras.layers.BatchNormalization()
-
         # Option to add 3rd conv_lstm layer (Shi 2015 got best results w 2 and 3)
-        # self.convlstm_3 = tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3),
-        #           input_shape=(None, 64, 64, 5), padding='same',
-        #           return_sequences=True)
-        # self.bn3 = tf.keras.layers.BatchNormalization()
+        # self.convlstm_2 = tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3),
+        #                                             input_shape=(None, 64, 64, 5),
+        #                                             padding='same',
+        #                                             return_sequences=True)
+        # self.bn2 = tf.keras.layers.BatchNormalization()
 
-        self.conv3D = tf.keras.layers.Conv3D(filters=1, kernel_size=(3, 3, 3),
+        self.convlstm_3 = tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3),
+                                                     input_shape=(None, 64, 64, 5), padding='same',
+                                                     return_sequences=False)
+        self.bn3 = tf.keras.layers.BatchNormalization()
+
+        self.conv2D = tf.keras.layers.Conv2D(filters=1, kernel_size=(3, 3, 3),
                                              activation='sigmoid', padding='same',
                                              data_format='channels_last')
 
@@ -86,11 +86,11 @@ class ConvLSTM(tf.keras.Model):
 
         img = self.convlstm_1(image_seq)
         img = self.bn1(img)
-        img = self.convlstm_2(img)
-        img = self.bn2(img)
-        # img = self.convlstm_3(img)
-        # img = self.bn3(img)
-        img = self.conv3D(img)
+        # img = self.convlstm_2(img)
+        # img = self.bn2(img)
+        img = self.convlstm_3(img)
+        img = self.bn3(img)
+        img = self.conv2D(img)
         img = self.flatten(img)
 
         pmd = self.lstm_1(past_metadata)
