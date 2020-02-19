@@ -61,8 +61,7 @@ class VGG2D(tf.keras.Model):
 
         # Top
         self.flatten = tf.keras.layers.Flatten()
-        self.FC1 = tf.keras.layers.Dense(512, activation='relu')
-        self.FC2 = tf.keras.layers.Dense(256, activation='relu')
+        self.FC1 = tf.keras.layers.Dense(64, activation='relu')
         self.t0 = tf.keras.layers.Dense(4, name='t0')
 
     def call(self, inputs):
@@ -99,7 +98,6 @@ class VGG2D(tf.keras.Model):
         # concatenate encoded image and metadata
         x = tf.keras.layers.concatenate([x, past_metadata, future_metadata], 1)
         x = self.FC1(x)
-        x = self.FC2(x)
         # Create 4 outputs for t0, t0+1, t0+3 and t0+6
         t0 = self.t0(x)
         return t0

@@ -2,6 +2,7 @@
   "previous_time_offsets": [
     "P0DT0H0M0S"
   ],
-  "model_name": "CNN2D",
-  "saved_weights_path": "../saved_models/cnn"
+  "model_name": "VGG2D",
+  "saved_weights_path": "saved_models/vgg_2d/weights.VGG2D",
+  "patch_size": 64
 }

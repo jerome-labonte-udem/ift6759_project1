@@ -4,7 +4,7 @@
   "train_batch_size": 512,
   "val_batch_size": 1024,
   "model_name": "VGG2D",
-  "saved_weights_path": "vgg_2d/weights.16055.18",
+  "saved_weights_path": "saved_models/vgg_2d",
   "patch_size": 64,
   "compile_params":{"loss":"mse", "optimizer":"adam"},
   "train_stations": {
