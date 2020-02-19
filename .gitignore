@@ -14,6 +14,9 @@ __pycache__/
 
 /data/tf_records/*
 /data/tf_records_backup/*
+slurm*
+2020*
+vgg_2d/
 
 # pycharm
 .idea/
