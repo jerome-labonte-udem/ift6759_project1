@@ -47,7 +47,7 @@ class ConvLSTM(tf.keras.Model):
                                                      return_sequences=False)
         self.bn3 = tf.keras.layers.BatchNormalization()
 
-        self.conv2D = tf.keras.layers.Conv2D(filters=1, kernel_size=(3, 3, 3),
+        self.conv2D = tf.keras.layers.Conv2D(filters=1, kernel_size=(3, 3),
                                              activation='sigmoid', padding='same',
                                              data_format='channels_last')
 
