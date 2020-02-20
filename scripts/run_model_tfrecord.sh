@@ -6,6 +6,18 @@
 
 FOLDER="/project/cq-training-1/project1/teams/team09"
 ZIP_FILE="tf_records.zip"
+config_file=${1}
+cfg_path="${FOLDER}/ift6759_project1/config_files/${config_file}"
+
+# Check if config file is valid
+if [ -z "${config_file}" ]; then
+      echo "Error: \$config_file argument is empty"
+      exit 1
+fi
+if [ ! -e "${cfg_path}" ]; then
+    echo "Error: cfg_path=${cfg_path} does not exist"
+    exit 1
+fi
 
 # 1. Create your environement locally
 source "${FOLDER}/venv/bin/activate"
@@ -21,7 +33,7 @@ unzip "${SLURM_TMPDIR}/${ZIP_FILE}" -d "${SLURM_TMPDIR}"
 #    and look for the dataset into $SLURM_TMPDIR
 python -m cProfile -o "${FOLDER}/profiler.profile" ${FOLDER}/ift6759_project1/train.py \
         --save_dir "${FOLDER}/ift6759_project1" \
-        --cfg_path "${FOLDER}/ift6759_project1/config_files/train_config_philippe.json" \
+        --cfg_path "${FOLDER}/ift6759_project1/config_files/${config_file}" \
         --data_path "${SLURM_TMPDIR}/${FOLDER}/tf_records"
 
 # 5. Copy whatever you want to save on $SCRATCH

@@ -111,8 +111,6 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     model = getattr(model_module, model_name)()
     model(inp_shapes)
     print(model.summary())
-    # model.build([(None, patch_size[0], patch_size[1],
-    #              5), (None, metadata_len)])
 
     compile_params = config["compile_params"]
     model.compile(**compile_params)
