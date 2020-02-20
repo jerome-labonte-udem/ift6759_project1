@@ -33,7 +33,7 @@ unzip "${SLURM_TMPDIR}/${ZIP_FILE}" -d "${SLURM_TMPDIR}"
 #    and look for the dataset into $SLURM_TMPDIR
 python -m cProfile -o "${FOLDER}/profiler.profile" ${FOLDER}/ift6759_project1/train.py \
         --save_dir "${FOLDER}/ift6759_project1" \
-        --cfg_path "${FOLDER}/ift6759_project1/config_files/${config_file}" \
+        --cfg_path "${cfg_path}" \
         --data_path "${SLURM_TMPDIR}/${FOLDER}/tf_records"
 
 # 5. Copy whatever you want to save on $SCRATCH
