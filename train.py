@@ -96,11 +96,13 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     model_name = config["model_name"]
 
     is_cnn = model_name == "CNN2D" or model_name == "VGG2D"
-    train_data = tfrecord_dataloader(Path(data_path, "train"), is_cnn, patch_size[0])
-    val_data = tfrecord_dataloader(Path(data_path, "validation"), is_cnn, patch_size[0])
+    rotate_imgs = bool(config["rotate_imgs"]) if "rotate_imgs" in config else False
+    print(f"Data augmentation: Rotating images = {rotate_imgs}")
+
+    train_data = tfrecord_dataloader(Path(data_path, "train"), is_cnn, patch_size[0], rotate_imgs)
+    val_data = tfrecord_dataloader(Path(data_path, "validation"), is_cnn, patch_size[0], rotate_imgs)
 
     # Here, we assume that the model Class is in a module with the same name and under models
-
     model_module = importlib.import_module(f".{model_name}", package="models")
     timesteps = len(previous_time_offsets)
     target_len = len(target_time_offsets)

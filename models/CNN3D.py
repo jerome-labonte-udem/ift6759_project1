@@ -21,6 +21,7 @@ class CNN3D(tf.keras.Model):
 
         self.flatten = tf.keras.layers.Flatten()
         self.FC1 = tf.keras.layers.Dense(64, activation='relu')
+        self.dropout = tf.keras.layers.Dropout(rate=0.25)
         self.t0 = tf.keras.layers.Dense(4, name='t0')
 
     def call(self, inputs):
@@ -45,6 +46,7 @@ class CNN3D(tf.keras.Model):
 
         x = tf.keras.layers.concatenate([x, pmd, future_metadata], 1)
         x = self.FC1(x)
+        x = self.dropout(x)
         # Create 4 outputs for t0, t0+1, t0+3 and t0+6
         t0 = self.t0(x)
         return t0
