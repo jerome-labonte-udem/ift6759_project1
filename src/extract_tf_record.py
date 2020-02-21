@@ -74,6 +74,17 @@ def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int, seq_len: Optio
     return raw_image_dataset.map(_parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 
+def rotate_tensor(inputs, label):
+    """
+    Data augmentation to randomly rotate array of past images + t0
+    to either [0, 90, 180, 270] degrees
+    """
+    sample, past_metadata, future_metadata = inputs
+    n_rotations = tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32)
+    sample = tf.image.rot90(sample, n_rotations)
+    return (sample, past_metadata, future_metadata), label
+
+
 def filter_fn(inputs, target):
     # remove all samples that have NaN values
     cond = tf.reduce_any(tf.math.is_nan(inputs[1])) or tf.reduce_any(tf.math.is_nan(inputs[2])) \
@@ -85,10 +96,12 @@ def tfrecord_dataloader(
         dir_shards: str,
         cnn_2d: bool,
         patch_size: int,
+        rotate_imgs: bool = False,
         seq_len: Optional[int]
 ) -> tf.data.Dataset:
     """
     Dataloader at train time, fetch pre-shuffled batches of target_datetimes
+    :param rotate_imgs: rotate images to [0, 90, 180, or 270] degrees
     :param dir_shards: directory where the shards of .tfrecords are
     :param cnn_2d: if cnn2d, only return image at t0, else return [previous_images, t0]
     :param patch_size: patch_size to crop, needs to be < INIT_PS
@@ -97,5 +110,7 @@ def tfrecord_dataloader(
     """
     data_loader = parse_dataset(dir_shards, cnn_2d, patch_size, seq_len)
     data_loader = data_loader.filter(filter_fn)
+    if rotate_imgs:
+        data_loader = data_loader.map(rotate_tensor, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     data_loader = data_loader.prefetch(tf.data.experimental.AUTOTUNE)
     return data_loader
