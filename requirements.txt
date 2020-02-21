@@ -1,11 +1,9 @@
-flake8==3.7.9
-matplotlib==3.1.2
+matplotlib==3.1.1
 numpy==1.17.4
-opencv_python==4.1.2.30
-pytest==5.3.4
-setuptools==45.1.0
+opencv_python==3.4.4.19
+setuptools==41.0.1
 pandas==0.25.3
 h5py==2.10.0
 tensorflow-gpu==2.0
 lz4==3.0.2
-tqdm==4.41.1
+tqdm==4.40.2
