@@ -97,7 +97,7 @@ def tfrecord_dataloader(
         cnn_2d: bool,
         patch_size: int,
         rotate_imgs: bool = False,
-        seq_len: Optional[int]
+        seq_len: Optional[int] = None
 ) -> tf.data.Dataset:
     """
     Dataloader at train time, fetch pre-shuffled batches of target_datetimes
