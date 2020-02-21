@@ -1,6 +1,7 @@
 import tensorflow as tf
 import os
 import glob
+from typing import Optional
 from src.hdf5 import HDF5File
 
 SAMPLE = "sample"
@@ -13,7 +14,7 @@ INIT_PS = 64
 HALF_INIT_PS = 64 // 2
 
 
-def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int):
+def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int, seq_len: Optional[int]):
     """
     Based on https://www.tensorflow.org/tutorials/load_data/tfrecord
     Extract our dataset from a directory of tf_records
@@ -51,10 +52,12 @@ def parse_dataset(dir_shards: str, cnn_2d: bool, patch_size: int):
             # take only t0 image
             sample = tf.reshape(sample[-1, :, :, :], (1, INIT_PS, INIT_PS, 5))
             past_metadata = tf.reshape(past_metadata[-1, :], (1, 5))
+        elif seq_len is not None:  # take last "seq_len" samples from sequence
+            sample = tf.reshape(sample[-seq_len:, :, :, :], (seq_len, INIT_PS, INIT_PS, 5))
+            past_metadata = tf.reshape(past_metadata[-seq_len:, :], (seq_len, 5))
         else:
             sample = tf.reshape(sample, (5, INIT_PS, INIT_PS, 5))
             past_metadata = tf.reshape(past_metadata, (5, 5))
-
         if patch_size < INIT_PS:
             sample = sample[:, HALF_INIT_PS - half_ps:HALF_INIT_PS + half_ps,
                             HALF_INIT_PS - half_ps:HALF_INIT_PS + half_ps, :]
@@ -93,7 +96,8 @@ def tfrecord_dataloader(
         dir_shards: str,
         cnn_2d: bool,
         patch_size: int,
-        rotate_imgs: bool = False
+        rotate_imgs: bool = False,
+        seq_len: Optional[int] = None
 ) -> tf.data.Dataset:
     """
     Dataloader at train time, fetch pre-shuffled batches of target_datetimes
@@ -101,9 +105,10 @@ def tfrecord_dataloader(
     :param dir_shards: directory where the shards of .tfrecords are
     :param cnn_2d: if cnn2d, only return image at t0, else return [previous_images, t0]
     :param patch_size: patch_size to crop, needs to be < INIT_PS
+    :param seq_len: maximum sequence length, will return whole sequence if None
     :return:
     """
-    data_loader = parse_dataset(dir_shards, cnn_2d, patch_size)
+    data_loader = parse_dataset(dir_shards, cnn_2d, patch_size, seq_len)
     data_loader = data_loader.filter(filter_fn)
     if rotate_imgs:
         data_loader = data_loader.map(rotate_tensor, num_parallel_calls=tf.data.experimental.AUTOTUNE)

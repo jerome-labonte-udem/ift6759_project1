@@ -36,7 +36,7 @@ class CustomCell(tf.keras.layers.Layer):
         self.pool_2 = tf.keras.layers.MaxPooling2D((2, 2))
         self.conv_3 = tf.keras.layers.Conv2D(64, (3, 3), activation='relu')
         self.flatten = tf.keras.layers.Flatten()
-        self.FC = tf.keras.layers.Dense(128)
+        self.FC = tf.keras.layers.Dense(512)
         self.kernel = None
         self.recurrent_kernel = None
 
@@ -58,10 +58,10 @@ class CustomCell(tf.keras.layers.Layer):
         x = self.flatten(x)
         # concatenate encoded image and metadata
         self.kernel = self.add_weight(
-            shape=(x.shape[1] + metadata_shape, self.units), initializer='uniform', name="kernel")
+            shape=(x.shape[1] + metadata_shape, self.units), initializer=self.kernel_initializer, name="kernel")
         self.recurrent_kernel = self.add_weight(
             shape=(self.units, self.units),
-            initializer='uniform', name="recurrent_kernel")
+            initializer=self.recurrent_initializer, name="recurrent_kernel")
 
     def call(self, inputs, state):
         """
@@ -71,7 +71,6 @@ class CustomCell(tf.keras.layers.Layer):
         :return: output, hidden state
         """
         img, metadata = inputs
-        # TODO replace with Resnet or something similar
         x = self.conv_1(img)
         x = self.pool_1(x)
         x = self.conv_2(x)
@@ -99,7 +98,7 @@ class RNN(tf.keras.Model):
         Define model layers
         """
         super(RNN, self).__init__(**kwargs)
-        self.rnn = tf.keras.layers.RNN(CustomCell(128), name='rnn')
+        self.rnn = tf.keras.layers.RNN(CustomCell(512), name='rnn')
         self.FC = tf.keras.layers.Dense(4, name='outputs')
 
     def call(self, inputs):

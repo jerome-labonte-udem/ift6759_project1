@@ -94,13 +94,16 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
 
     model_name = config["model_name"]
-
+    if "seq_len" in config.keys():
+        seq_len = config["seq_len"]
+    else:
+        seq_len = None
     is_cnn = model_name == "CNN2D" or model_name == "VGG2D"
     rotate_imgs = bool(config["rotate_imgs"]) if "rotate_imgs" in config else False
     print(f"Data augmentation: Rotating images = {rotate_imgs}")
 
-    train_data = tfrecord_dataloader(Path(data_path, "train"), is_cnn, patch_size[0], rotate_imgs)
-    val_data = tfrecord_dataloader(Path(data_path, "validation"), is_cnn, patch_size[0], rotate_imgs)
+    train_data = tfrecord_dataloader(Path(data_path, "train"), is_cnn, patch_size[0], rotate_imgs, seq_len)
+    val_data = tfrecord_dataloader(Path(data_path, "validation"), is_cnn, patch_size[0], rotate_imgs, seq_len)
 
     # Here, we assume that the model Class is in a module with the same name and under models
     model_module = importlib.import_module(f".{model_name}", package="models")
@@ -141,8 +144,9 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     )
 
     if plot_loss:
-        plt.plot(range(1, epochs + 1), history.history['loss'], label='train_loss')
-        plt.plot(range(1, epochs + 1), history.history['val_loss'], label='val_loss')
+        completed_epochs = len(history.history['val_loss'])
+        plt.plot(range(1, completed_epochs + 1), history.history['loss'][:completed_epochs], label='train_loss')
+        plt.plot(range(1, completed_epochs + 1), history.history['val_loss'], label='val_loss')
         plt.xlabel('Epoch')
         plt.ylabel('MSE')
         plt.legend()
