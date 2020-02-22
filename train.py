@@ -29,7 +29,6 @@ tf_config.gpu_options.allow_growth = True
 session = InteractiveSession(config=tf_config)
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-# tf.debugging.set_log_device_placement(True)
 
 
 def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch_size: int, val_batch_size: int,
@@ -93,16 +92,22 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     target_time_offsets = [pd.Timedelta(d).to_pytimedelta() for d in config["target_time_offsets"]]
 
     model_name = config["model_name"]
+    is_cnn_2d = model_name == "CNN2D" or model_name == "VGG2D"
     if "seq_len" in config.keys():
         seq_len = config["seq_len"]
+        print(f"Using sequence legth of {seq_len}")
+    elif is_cnn_2d:
+        print("2D Architecture: Using t0 picture only")
+        seq_len = 1
     else:
-        seq_len = None
-    is_cnn = model_name == "CNN2D" or model_name == "VGG2D"
+        print(f"Sequence length defaulting to 5")
+        seq_len = 5
+
     rotate_imgs = bool(config["rotate_imgs"]) if "rotate_imgs" in config else False
     print(f"Data augmentation: Rotating images = {rotate_imgs}")
 
-    train_data = tfrecord_dataloader(Path(data_path, "train"), is_cnn, patch_size[0], rotate_imgs, seq_len)
-    val_data = tfrecord_dataloader(Path(data_path, "validation"), is_cnn, patch_size[0], rotate_imgs, seq_len)
+    train_data = tfrecord_dataloader(Path(data_path, "train"), patch_size[0], seq_len, rotate_imgs)
+    val_data = tfrecord_dataloader(Path(data_path, "validation"), patch_size[0], seq_len, False)
 
     # Here, we assume that the model Class is in a module with the same name and under models
     model_module = importlib.import_module(f".{model_name}", package="models")

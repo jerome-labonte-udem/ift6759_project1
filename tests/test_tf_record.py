@@ -80,7 +80,7 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(os.path.isdir(records_dir))
 
         # Extract tf_record
-        loader = tfrecord_dataloader(records_dir, cnn_2d=False, patch_size=self.patch_size[0])
+        loader = tfrecord_dataloader(records_dir, patch_size=self.patch_size[0], seq_len=5)
         for i, ((sample, past_metadata, future_metadata), target) in enumerate(loader.batch(16)):
             tf.debugging.assert_all_finite(sample, f"sample has NaN")
             tf.debugging.assert_all_finite(past_metadata, f"past_metadata has NaN")
