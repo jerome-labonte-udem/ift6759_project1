@@ -1,3 +1,7 @@
+"""
+Generate or load predictions for a subset of validation set and creates bar plots
+"""
+
 import argparse
 import os
 
@@ -27,7 +31,7 @@ def parse_cloudiness_flags(
         dataframe: pd.DataFrame,
         cloudiness: str
 ) -> np.ndarray:
-    """Parses all required station daytime flags from the provided dataframe for the masking of predictions."""
+    """Parses all required station cloudiness flags from the provided dataframe for the masking of predictions."""
     flags = []
     for station_idx, station_name in enumerate(target_stations):
         station_flags = dataframe[station_name + "_CLOUDINESS"]
@@ -50,7 +54,7 @@ def parse_months(
         dataframe: pd.DataFrame,
         month: int
 ) -> np.ndarray:
-    """Parses all required station daytime flags from the provided dataframe for the masking of predictions."""
+    """Parses all required station datetime from the provided dataframe for the masking of predictions."""
     flags = []
     for station_idx, station_name in enumerate(target_stations):
         for target_datetime in target_datetimes:
@@ -65,7 +69,12 @@ def parse_months(
     return np.concatenate(flags, axis=0)
 
 
-def main(cfg_path: str):
+def main(cfg_path: str, saved_predictions: typing.Optional[str] = None):
+    """
+    Generates graphs
+    :param cfg_path: Path to config file
+    :param saved_predictions: Path to saved predictions in .npy file (Optional)
+    """
     assert os.path.isfile(cfg_path), f"invalid config file path: {cfg_path}"
     with open(cfg_path, "r") as config_file:
         config = json.load(config_file)
@@ -74,13 +83,14 @@ def main(cfg_path: str):
     assert "previous_time_offsets" in config.keys(), "previous_time_offsets not found in config file"
     assert "saved_weights_path" in config.keys(), "saved_weights_path not found in config file"
     assert "data_directory" in config.keys(), "data_directory not found in config file"
-    assert os.path.isdir(config["data_directory"]), f"invalid data_directory: {cfg_path['data_directory']}"
+    assert os.path.isdir(config["data_directory"]), f"invalid data_directory: {config['data_directory']}"
     assert "dataframe_path" in config.keys(), "dataframe_path not found in config file"
     assert os.path.isfile(config["dataframe_path"]), f"invalid dataframe path: {config['dataframe_path']}"
     assert "output_directory" in config.keys(), "output_directory not found in config file"
+
+    # create directory for saving results and graphs
     output_dir = config["output_directory"]
     os.makedirs(output_dir, exist_ok=True)
-    print(f"Saving predictions and graphs at {output_dir}")
 
     dataframe_path = config["dataframe_path"]
     dataframe = pd.read_pickle(dataframe_path)
@@ -89,12 +99,24 @@ def main(cfg_path: str):
     assert target_datetimes and all([d in dataframe.index for d in target_datetimes])
     target_stations = Station.COORDS
     target_time_offsets = get_target_time_offsets()
-    predictions = generate_all_predictions(target_stations, target_datetimes,
-                                           target_time_offsets, dataframe, config, config["data_directory"])
+
     model_name = config["model_name"]
-    with open(os.path.join(output_dir, f"{model_name}_preds.txt"), "w") as fd:
-        for pred in predictions:
-            fd.write(",".join([f"{v:0.03f}" for v in pred.tolist()]) + "\n")
+
+    # Generate predictions if needed or load from file
+    if saved_predictions is None:
+        print(f"Saving predictions to {output_dir}")
+        predictions = generate_all_predictions(target_stations, target_datetimes,
+                                               target_time_offsets, dataframe, config, config["data_directory"])
+        # save in .txt file for human readability
+        with open(os.path.join(output_dir, f"{model_name}_preds.txt"), "w") as fd:
+            for pred in predictions:
+                fd.write(",".join([f"{v:0.03f}" for v in pred.tolist()]) + "\n")
+        # save in .npy file for reloading
+        np.save(os.path.join(output_dir, f"{model_name}-predictions"), predictions)
+    else:
+        print(f"loading predictions from {saved_predictions}")
+        predictions = np.load(saved_predictions)
+
     predictions = predictions.reshape((len(target_stations), len(target_datetimes), len(target_time_offsets)))
     gt = parse_gt_ghi_values(target_stations, target_datetimes, target_time_offsets, dataframe)
     gt = gt.reshape((len(target_stations), len(target_datetimes), len(target_time_offsets)))
@@ -104,6 +126,7 @@ def main(cfg_path: str):
 
     squared_errors = np.square(predictions - gt)
 
+    print(f"Saving graphs to {output_dir}")
     # Plot RMSE by cloudiness
     cloudiness_rmse = []
     cloudiness_std = []
@@ -185,7 +208,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("cfg_path", type=str, default=None,
                         help="path to the JSON config file used to store user model/dataloader parameters")
+    parser.add_argument("--saved_predictions", type=str, default=None,
+                        help="path to the saved .npy predictions file")
     args = parser.parse_args()
     main(
-        cfg_path=args.cfg_path
+        cfg_path=args.cfg_path,
+        saved_predictions=args.saved_predictions
     )
