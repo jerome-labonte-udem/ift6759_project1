@@ -98,7 +98,7 @@ def hdf5_dataloader_test(
     return data_loader
 
 
-def tfrecord_dataloader(
+def tfrecord_preprocess_dataloader(
         dataframe: pd.DataFrame,
         target_datetimes: List[datetime.datetime],
         target_time_offsets: List[datetime.timedelta],

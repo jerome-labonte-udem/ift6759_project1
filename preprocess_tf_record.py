@@ -8,7 +8,7 @@ import numpy as np
 import random
 from typing import Tuple
 
-from src.data_pipeline import tfrecord_dataloader
+from src.data_pipeline import tfrecord_preprocess_dataloader
 from src.schema import Catalog, get_target_time_offsets, get_previous_time_offsets
 
 FILE_TF_RECORD = "input_file_month.tfrecord"
@@ -103,7 +103,7 @@ def preprocess_tfrecords(
 
     previous_time_offsets = get_previous_time_offsets()
 
-    dataset = tfrecord_dataloader(
+    dataset = tfrecord_preprocess_dataloader(
         df, target_datetimes, get_target_time_offsets(), previous_time_offsets,
         batch_size=batch_size, data_directory=data_path, patch_size=patch_size
     )

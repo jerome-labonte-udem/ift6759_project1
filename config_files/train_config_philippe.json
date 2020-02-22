@@ -3,9 +3,10 @@
   "epochs": 100,
   "train_batch_size": 512,
   "val_batch_size": 1024,
-  "model_name": "ResNet3D",
+  "model_name": "CNN3D",
   "rotate_imgs": 1,
-  "saved_weights_path": "saved_models/resnet_3d",
+  "seq_len": 3,
+  "saved_weights_path": "saved_models/cnn_3d",
   "patch_size": 64,
   "compile_params":{"loss":"mse", "optimizer":"adam"},
   "train_stations": {
