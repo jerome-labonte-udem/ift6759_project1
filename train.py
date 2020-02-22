@@ -91,7 +91,6 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
         dataframe.loc[dataframe[f"{station}_DAYTIME"] == 0, [f"{station}_GHI"]] = 0
 
     target_time_offsets = [pd.Timedelta(d).to_pytimedelta() for d in config["target_time_offsets"]]
-    previous_time_offsets = [-pd.Timedelta(d).to_pytimedelta() for d in config["previous_time_offsets"]]
 
     model_name = config["model_name"]
     if "seq_len" in config.keys():
