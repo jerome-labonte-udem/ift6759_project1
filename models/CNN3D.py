@@ -10,7 +10,7 @@ class CNN3D(tf.keras.Model):
         Define model layers
         """
         super(CNN3D, self).__init__()
-        self.conv_1 = tf.keras.layers.Conv3D(32, (5, 7, 7), input_shape=(None, 5, 64, 64, 5), activation="relu")
+        self.conv_1 = tf.keras.layers.Conv3D(32, (3, 7, 7), input_shape=(None, 3, 64, 64, 5), activation="relu")
         self.pool_1 = tf.keras.layers.MaxPooling2D((2, 2))
         self.conv_2 = tf.keras.layers.Conv2D(64, (5, 5), activation='relu')
         self.pool_2 = tf.keras.layers.MaxPooling2D((2, 2))

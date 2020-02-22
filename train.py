@@ -107,12 +107,13 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
 
     # Here, we assume that the model Class is in a module with the same name and under models
     model_module = importlib.import_module(f".{model_name}", package="models")
-    timesteps = len(previous_time_offsets)
     target_len = len(target_time_offsets)
-    inp_img_seq = tf.keras.layers.Input((timesteps, patch_size[0], patch_size[1], 5))
-    inp_metadata_seq = tf.keras.layers.Input((timesteps, 5))
+
+    inp_img_seq = tf.keras.layers.Input((seq_len, patch_size[0], patch_size[1], 5))
+    inp_metadata_seq = tf.keras.layers.Input((seq_len, 5))
     inp_future_metadata = tf.keras.layers.Input(target_len)
     inp_shapes = [inp_img_seq, inp_metadata_seq, inp_future_metadata]
+
     model = getattr(model_module, model_name)()
     model(inp_shapes)
     print(model.summary())
