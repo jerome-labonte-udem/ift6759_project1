@@ -104,10 +104,10 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
         seq_len = 5
 
     rotate_imgs = bool(config["rotate_imgs"]) if "rotate_imgs" in config else False
-    print(f"Data augmentation: Rotating images = {rotate_imgs}")
+    prob_drop_imgs = config["prob_drop_imgs"] if "prob_drop_imgs" in config else 0.0
 
-    train_data = tfrecord_dataloader(Path(data_path, "train"), patch_size[0], seq_len, rotate_imgs)
-    val_data = tfrecord_dataloader(Path(data_path, "validation"), patch_size[0], seq_len, False)
+    train_data = tfrecord_dataloader(Path(data_path, "train"), patch_size[0], seq_len, rotate_imgs, prob_drop_imgs)
+    val_data = tfrecord_dataloader(Path(data_path, "validation"), patch_size[0], seq_len, False, 0)
 
     # Here, we assume that the model Class is in a module with the same name and under models
     model_module = importlib.import_module(f".{model_name}", package="models")

@@ -71,15 +71,34 @@ def parse_dataset(dir_shards: str, patch_size: int, seq_len: Optional[int]):
     return raw_image_dataset.map(_parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 
-def rotate_tensor(inputs, label):
-    """
-    Data augmentation to randomly rotate array of past images + t0
-    to either [0, 90, 180, 270] degrees
-    """
-    sample, past_metadata, future_metadata = inputs
-    n_rotations = tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32)
-    sample = tf.image.rot90(sample, n_rotations)
-    return (sample, past_metadata, future_metadata), label
+class DataAugmentation:
+    def __init__(self, prob_drop_imgs: float):
+        self.prob_drop_imgs = prob_drop_imgs
+
+    @staticmethod
+    def rotate_tensor(inputs, label):
+        """
+        Data augmentation to randomly rotate array of past images + t0
+        to either [0, 90, 180, 270] degrees
+        """
+        sample, past_metadata, future_metadata = inputs
+        n_rotations = tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32)
+        sample = tf.image.rot90(sample, n_rotations)
+        return (sample, past_metadata, future_metadata), label
+
+    def drop_imgs(self, inputs, label):
+        sample, past_metadata, future_metadata = inputs
+        p_sampled = tf.random.uniform(shape=[len(sample) - 1], dtype=tf.float32)
+        sample = tf.unstack(sample)
+        # Never remove t0 since we always have it at test time
+        for i in range(len(sample) - 1):
+            sample[i] = tf.cond(
+                p_sampled[i] < self.prob_drop_imgs,
+                lambda: tf.fill(sample[i].shape, -1.0),
+                lambda: sample[i]
+            )
+        sample = tf.stack(sample)
+        return (sample, past_metadata, future_metadata), label
 
 
 def filter_fn(inputs, target):
@@ -94,6 +113,7 @@ def tfrecord_dataloader(
         patch_size: int,
         seq_len: int,
         rotate_imgs: bool = False,
+        prob_drop_imgs: float = 0.,
 ) -> tf.data.Dataset:
     """
     Dataloader at train time, fetch pre-shuffled batches of target_datetimes
@@ -101,11 +121,19 @@ def tfrecord_dataloader(
     :param dir_shards: directory where the shards of .tfrecords are
     :param patch_size: patch_size to crop, needs to be < INIT_PS
     :param seq_len: maximum sequence length, will return whole sequence if None
+    :param prob_drop_imgs: probability to randomly drop past imags
     :return:
     """
     data_loader = parse_dataset(dir_shards, patch_size, seq_len)
     data_loader = data_loader.filter(filter_fn)
+
+    data_aug = DataAugmentation(prob_drop_imgs)
     if rotate_imgs:
-        data_loader = data_loader.map(rotate_tensor, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        print(f"Data augmentation: Rotating images")
+        data_loader = data_loader.map(data_aug.rotate_tensor, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    if seq_len > 1 and isinstance(prob_drop_imgs, float) and prob_drop_imgs > 0:
+        print(f"Data Augmentation: Randomly dropping past images with probability = {prob_drop_imgs}")
+        data_loader = data_loader.map(data_aug.drop_imgs, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
     data_loader = data_loader.prefetch(tf.data.experimental.AUTOTUNE)
     return data_loader
