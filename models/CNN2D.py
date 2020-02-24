@@ -1,13 +1,12 @@
 """
 Basic model example using a 2D CNN with images as inputs and metadata
-Used only for demonstration purposes and not to be used on real datas
 """
 import tensorflow as tf
 
 
 class CNN2D(tf.keras.Model):
     """
-    Toy model to test multiple inputs and outputs
+    Simple 2D CNN
     """
     def __init__(self):
         """
