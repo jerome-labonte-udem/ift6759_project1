@@ -21,7 +21,7 @@ def hdf5_dataloader_test(
         config: Dict[AnyStr, Any] = None,
         data_directory: Optional[str] = None,
         patch_size: Tuple[int, int] = (32, 32),
-        normalize_imgs: bool = False,
+        normalize_imgs: bool = True,
 ) -> tf.data.Dataset:
     """
     * Test time *: Take as input a list of target_datetimes (same as required by script in evaluator.py)

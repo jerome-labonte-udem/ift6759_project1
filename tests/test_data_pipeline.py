@@ -71,8 +71,6 @@ class TestDataPipeline(unittest.TestCase):
 
         fig, axs = plt.subplots(3, 3)
         for idx, ((sample, past_metadata, future_metadata), target) in enumerate(dataset):
-            import pdb
-            pdb.set_trace()
             if sample.shape[1] != len(hours_min):
                 continue
             for i in range(sample.shape[1]):

@@ -28,7 +28,7 @@ def prepare_dataloader(
         target_time_offsets: typing.List[datetime.timedelta],
         config: typing.Dict[typing.AnyStr, typing.Any],
         data_directory: typing.Optional[str],
-        normalize_imgs: bool = False
+        normalize_imgs: bool = True
 ) -> tf.data.Dataset:
     """This function should be modified in order to prepare & return your own data loader.
 
