@@ -65,11 +65,14 @@ class TestDataPipeline(unittest.TestCase):
         dataset = hdf5_dataloader_test(
             self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir, patch_size=(256, 256),
             batch_size=8, subset="valid", stations={Station.GWN: Station.COORDS[Station.GWN]},
-            previous_time_offsets=[datetime.timedelta(hours=h, minutes=m) for h, m in hours_min[:-1]]
+            previous_time_offsets=[datetime.timedelta(hours=h, minutes=m) for h, m in hours_min],
+            normalize_imgs=False
         )
 
         fig, axs = plt.subplots(3, 3)
         for idx, ((sample, past_metadata, future_metadata), target) in enumerate(dataset):
+            import pdb
+            pdb.set_trace()
             if sample.shape[1] != len(hours_min):
                 continue
             for i in range(sample.shape[1]):

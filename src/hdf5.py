@@ -51,6 +51,11 @@ class HDF5File:
         # Min-max normalisation in the [-1, 1] range
         return (2 * (array - HDF5File.MIN_CHANNELS) / (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS)) - 1
 
+    @staticmethod
+    def un_normalize_min1_1(array):
+        # De-normalisation in the [-1, 1] range
+        return ((array + 1) * (HDF5File.MAX_CHANNELS - HDF5File.MIN_CHANNELS) / 2) + HDF5File.MIN_CHANNELS
+
     def lut_time_stamps(self):
         return [self.start_time + idx * datetime.timedelta(minutes=15) for idx in range(self.archive_lut_size)]
 
@@ -143,13 +148,14 @@ class HDF5File:
             raise NotImplementedError("Handling of odds patches is not implemented")
 
         channel_data = []
-        for channel_name in self.CHANNELS:
+        for i, channel_name in enumerate(self.CHANNELS):
             data = self.fetch_sample(channel_name, sample_idx)
             # Even if a channel is missing or is NaN, return an array of zeros to always predict
             # something at validation/test time
             if data is None or np.isnan(data).any():
                 if test_time:  # At test time we always have to predict
-                    channel_data.append(np.zeros(Catalog.size_image))
+                    # Fill with minimum value so that its normalized to -1, (just like train time)
+                    channel_data.append(np.full(Catalog.size_image, HDF5File.MIN_CHANNELS[0, 0, 0, i]))
                 else:  # At train time, we skip images that contain NaNs
                     return None
             else:
