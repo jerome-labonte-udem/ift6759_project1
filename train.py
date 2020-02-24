@@ -7,8 +7,7 @@ import importlib
 import json
 import os
 from pathlib import Path
-from typing import Dict, Tuple, List
-
+from typing import Dict, List
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -31,8 +30,7 @@ session = InteractiveSession(config=tf_config)
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
 
-def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch_size: int, val_batch_size: int,
-                              save_dir: str, patch_size: Tuple[int, int]) -> List:
+def get_callbacks_tensorboard(compile_params: Dict, save_dir: str, **kwargs) -> List:
     log_file = os.path.join(save_dir, LOG_DIR, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     print(f"Saving logs to path {log_file}")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
@@ -40,12 +38,7 @@ def get_callbacks_tensorboard(compile_params: Dict, model_name: str, train_batch
         histogram_freq=1
     )
 
-    hparams = {
-        "model_name": model_name,
-        "train_batch_size": train_batch_size,
-        "val_batch_size": val_batch_size,
-        "patch_size": patch_size[0],  # type "tuple" is unsupported
-    }
+    hparams = kwargs
     hparams.update(compile_params)
 
     return [
@@ -128,7 +121,8 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     # Saves only best model for now, could be used to saved every n epochs
     model_dir = os.path.join(save_dir, config["saved_weights_path"])
     os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, f"weights.{model_name}")
+    str_time = datetime.datetime.now().strftime("%m%d_%Hh%M")
+    model_path = os.path.join(model_dir, f"{model_name}_{str_time}")
     print(f"Saving model {model_name} to path = {model_path}")
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(model_path, monitor='val_loss', mode='min',
                                                           verbose=1, save_best_only=True, save_weights_only=True)
@@ -137,7 +131,9 @@ def main(save_dir: str, config_path: str, data_path: str, plot_loss: bool) -> No
     early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min',
                                                       patience=10, verbose=1)
     tb_callbacks = get_callbacks_tensorboard(
-        compile_params, model_name, train_batch_size, val_batch_size, save_dir, patch_size
+        compile_params, save_dir, model_name=model_name, train_batch_size=train_batch_size,
+        val_batch_size=val_batch_size, patch_size=patch_size[0], seq_len=seq_len, prob_drop_imgs=prob_drop_imgs,
+        rotate_imgs=rotate_imgs
     )
 
     history = model.fit(
