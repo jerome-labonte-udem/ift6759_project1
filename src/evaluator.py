@@ -27,7 +27,8 @@ def prepare_dataloader(
         stations: typing.Dict[typing.AnyStr, typing.Tuple[float, float, float]],
         target_time_offsets: typing.List[datetime.timedelta],
         config: typing.Dict[typing.AnyStr, typing.Any],
-        data_directory: typing.Optional[str]
+        data_directory: typing.Optional[str],
+        normalize_imgs: bool = True
 ) -> tf.data.Dataset:
     """This function should be modified in order to prepare & return your own data loader.
 
@@ -58,6 +59,7 @@ def prepare_dataloader(
             parameters are loaded automatically if the user provided a JSON file in their submission. Submitting
             such a JSON file is completely optional, and this argument can be ignored if not needed.
         data_directory: specify directory to test on local data
+        normalize_imgs:
 
     Returns:
         A ``tf.data.Dataset`` object that can be used to produce input tensors for your model. One tensor
@@ -70,7 +72,7 @@ def prepare_dataloader(
     data_loader = hdf5_dataloader_test(
         dataframe, target_datetimes, target_time_offsets, data_directory=data_directory,
         batch_size=config["batch_size"], stations=stations, subset="test", previous_time_offsets=previous_time_offsets,
-        patch_size=(config["patch_size"], config["patch_size"])
+        patch_size=(config["patch_size"], config["patch_size"]), normalize_imgs=normalize_imgs
     )
     # MODIFY ABOVE
 
@@ -78,8 +80,6 @@ def prepare_dataloader(
 
 
 def prepare_model(
-        stations: typing.Dict[typing.AnyStr, typing.Tuple[float, float, float]],
-        target_time_offsets: typing.List[datetime.timedelta],
         config: typing.Dict[typing.AnyStr, typing.Any],
 ) -> tf.keras.Model:
     """This function should be modified in order to prepare & return your own prediction model.
@@ -87,8 +87,6 @@ def prepare_model(
     See https://github.com/mila-iqia/ift6759/tree/master/projects/project1/evaluation.md for more information.
 
     Args:
-        stations: a map of station names of interest paired with their coordinates (latitude, longitude, elevation).
-        target_time_offsets: the list of timedeltas to predict GHIs for (by definition: [T=0, T+1h, T+3h, T+6h]).
         config: configuration dictionary holding any extra parameters that might be required by the user. These
             parameters are loaded automatically if the user provided a JSON file in their submission. Submitting
             such a JSON file is completely optional, and this argument can be ignored if not needed.
@@ -145,7 +143,7 @@ def generate_all_predictions(
         print(f"preparing data loader & model for station '{station_name}' ({station_idx + 1}/{len(target_stations)})")
         data_loader = prepare_dataloader(dataframe, target_datetimes, stations,
                                          target_time_offsets, user_config, data_directory)
-        model = prepare_model(stations, target_time_offsets, user_config)
+        model = prepare_model(user_config)
         station_preds = generate_predictions(data_loader, model, pred_count=len(target_datetimes))
         if len(station_preds) != len(target_datetimes):
             raise ValueError(f"number of predictions ({len(station_preds)}) "

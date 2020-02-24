@@ -21,6 +21,7 @@ def hdf5_dataloader_test(
         config: Dict[AnyStr, Any] = None,
         data_directory: Optional[str] = None,
         patch_size: Tuple[int, int] = (32, 32),
+        normalize_imgs: bool = True,
 ) -> tf.data.Dataset:
     """
     * Test time *: Take as input a list of target_datetimes (same as required by script in evaluator.py)
@@ -38,6 +39,7 @@ def hdf5_dataloader_test(
         subset: "test", "valid", or "train
         patch_size:
         stations:
+        normalize_imgs:
         previous_time_offsets: list of timedelta of previous pictures that we want to look at,
         if not provided we only look at t0
     Returns:
@@ -66,8 +68,9 @@ def hdf5_dataloader_test(
                 directory=data_directory, stations=stations,
             )
 
-            # Normalize here since we normalize at load time for tfrecords at train time
-            samples = HDF5File.min_max_normalization_min1_1(samples)
+            if normalize_imgs:
+                # Normalize here since we normalize at load time for tfrecords at train time
+                samples = HDF5File.min_max_normalization_min1_1(samples)
 
             past_metadata, future_metadata = get_metadata(
                 dataframe, batch_of_datetimes, previous_time_offsets, target_time_offsets, stations
