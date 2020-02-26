@@ -1,5 +1,9 @@
 # ift6759_project1
 
+## Run the evaluator.py on the test set
+sbatch scripts/evaluator.sh [preds_output_path] [admin_config_path] [stats_output_path]
+stats_output_path is optional, the first two arguments follow the order of the evaluator.py script
+
 ## Generate the training and validation sets
 We used TFRecords to store our (x, y) samples where x is a series of pre-cropped past images + present image 
 and their corresponding metadata, and y is the GHI values at [T0, T+1, T+3, T+6].
