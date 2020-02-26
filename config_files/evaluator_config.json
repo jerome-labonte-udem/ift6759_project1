@@ -5,7 +5,7 @@
     "P0DT0H0M0S"
   ],
   "model_name": "ResNet3D",
-  "saved_weights_path": "saved_models/resnet_3d/ResNet3D_0225_03h10",
+  "saved_weights_path": "/project/cq-training-1/project1/teams/team09/ift6759_project1/saved_models/resnet_3d/ResNet3D_0225_03h10",
   "patch_size": 64,
   "batch_size": 32
 }
