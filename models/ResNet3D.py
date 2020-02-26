@@ -54,18 +54,21 @@ class ResNet3D(tf.keras.Model):
         self.res_block2a = ResBlock(32, 64)
         self.res_block2b = ResBlock(64, 64)
         self.res_block2c = ResBlock(64, 64)
+        self.res_block2d = ResBlock(64, 64)
 
         self.res_block3a = ResBlock(64, 128)
         self.res_block3b = ResBlock(128, 128)
         self.res_block3c = ResBlock(128, 128)
+        self.res_block3d = ResBlock(128, 128)
+        self.res_block3e = ResBlock(128, 128)
+        self.res_block3f = ResBlock(128, 128)
 
-        # self.flatten = tf.keras.layers.Flatten()
         self.avg_pool = tf.keras.layers.GlobalAveragePooling2D()
 
         # for pastmetadata
-        self.rnn = tf.keras.layers.SimpleRNN(8, dropout=0.1, recurrent_dropout=0.1)
+        self.rnn = tf.keras.layers.SimpleRNN(10, dropout=0.1, recurrent_dropout=0.1)
 
-        self.FC1 = tf.keras.layers.Dense(128, activation='relu')
+        self.FC1 = tf.keras.layers.Dense(256, activation='relu')
         self.t0 = tf.keras.layers.Dense(4, name='t0')
 
     def call(self, inputs):
@@ -85,26 +88,25 @@ class ResNet3D(tf.keras.Model):
         x = self.res_block1a(x)
         x = self.res_block1b(x)
         x = self.res_block1c(x)
-        print(f"res_block1c.shape = {x.shape} ")
+
         x = self.res_block2a(x)
         x = self.res_block2b(x)
         x = self.res_block2c(x)
-        print(f"res_block2c.shape = {x.shape} ")
+        x = self.res_block2d(x)
+
         x = self.res_block3a(x)
-        print(f"res_block3a.shape = {x.shape} ")
         x = self.res_block3b(x)
-        print(f"res_block3b.shape = {x.shape} ")
         x = self.res_block3c(x)
-        print(f"res_block3c.shape = {x.shape} ")
+        x = self.res_block3d(x)
+        x = self.res_block3e(x)
+        x = self.res_block3f(x)
 
         x = self.avg_pool(x)
-        print(f"avg_pool.shape = {x.shape} ")
-        # x = self.flatten(x)
+
         # rnn for past metadata
         pmd = self.rnn(past_metadata)
 
         x = tf.keras.layers.concatenate([x, pmd, future_metadata], 1)
-        print(f"concatenate.shape = {x.shape} ")
         x = self.FC1(x)
         # Create 4 outputs for t0, t0+1, t0+3 and t0+6
         t0 = self.t0(x)
