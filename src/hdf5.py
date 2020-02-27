@@ -105,10 +105,21 @@ class HDF5File:
         return self.fetch_sample("lat", sample_idx), self.fetch_sample("lon", sample_idx)
 
     def orig_min(self, channel_name: str):
-        return self.file[channel_name].attrs.get("orig_min", None)
+        # Add Return minimum if None just to handle 1st of january 2010
+        val = self.file[channel_name].attrs.get("orig_min", None)
+        if val is None:
+            idx = self.CHANNELS.index(channel_name)
+            return self.MIN_CHANNELS[0, 0, 0, idx]
+        else:
+            return val
 
     def orig_max(self, channel_name: str):
-        return self.file[channel_name].attrs.get("orig_max", None)
+        val = self.file[channel_name].attrs.get("orig_max", None)
+        if val is None:
+            idx = self.CHANNELS.index(channel_name)
+            return self.MAX_CHANNELS[0, 0, 0, idx]
+        else:
+            return val
 
     @staticmethod
     def get_stations_coordinates(lats, lons, stations_lats_lons: Dict[str, Tuple]) -> Dict[str, Tuple]:
@@ -130,7 +141,7 @@ class HDF5File:
             sample_idx: int,
             test_time: bool,
             stations_coords: collections.OrderedDict,
-            patch_size: Tuple[int, int] = (16, 16),
+            patch_size: Tuple[int, int] = (16, 16)
     ) -> np.array:
         """
         :param test_time:

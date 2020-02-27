@@ -1,10 +1,21 @@
 # ift6759_project1
 
 ## Run the evaluator.py on the test set
+We use the bash script in `scripts/evaluator.sh` to run the evaluation tests. The script
+uses the virtual environment in our team folder (at `/project/cq-training-1/project1/teams/team09/venv/` on the cluster).
+The script then submits a job to helios to run the evaluation on a compute-node. The bash script's first two
+arguments are the same as the evaluator.py and follow the same order. The [stats_output_path] argument
+is optional, and is the argument that corresponds to the command `-s` on the evaluator.py. To run the evaluation script:
 ```bash
 sbatch scripts/evaluator.sh [preds_output_path] [admin_config_path] [stats_output_path]
 ```
-stats_output_path is optional, the first two arguments follow the order of the evaluator.py script
+For example, we ran the command
+```bash
+sbatch scripts/evaluator.sh ./output.txt ./tests/valid_cfg/valid_cfg_2415.json ./stats.txt
+```
+to make sure that the evaluator script was working, where the `valid_cfg_2415.json` contains around 2.4k
+target datetimes on the validation set (year 2015).
+
 
 ## Generate the training and validation sets
 We used TFRecords to store our (x, y) samples where x is a series of pre-cropped past images + present image 

@@ -59,8 +59,7 @@ class TestDataPipeline(unittest.TestCase):
         norm_min = -0.009999999776482582
         norm_max = 2.252500057220459
         hours_min = [
-            (-12, 0), (-9, 0), (-6, 0), (-3, 0),
-            (-2, 0), (-1, 0), (0, -30), (0, -15), (0, 0)
+            (-3, 0), (-2, 15), (1, -30), (0, -45), (0, 0)
         ]
         dataset = hdf5_dataloader_test(
             self.df, list_days, get_target_time_offsets(), data_directory=self.hdf8_dir, patch_size=(256, 256),

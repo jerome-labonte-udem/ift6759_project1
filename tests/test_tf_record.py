@@ -4,10 +4,14 @@ import os
 import shutil
 import tensorflow as tf
 import numpy as np
+import pandas as pd
+import datetime
 
 from src.hdf5 import HDF5File
 from preprocess_tf_record import preprocess_tfrecords
 from src.extract_tf_record import tfrecord_dataloader
+from src.data_pipeline import hdf5_dataloader_test
+from src.schema import get_target_time_offsets
 
 
 class MyTestCase(unittest.TestCase):
@@ -95,6 +99,65 @@ class MyTestCase(unittest.TestCase):
 
         # delete temporary directory
         shutil.rmtree(self.path_save)
+
+    def test_compare_hdf5_and_tfrecord_loader(self):
+        """
+        Make sure the output of hdf5 dataloader and tfrecord dataloader are exactly the same
+        """
+
+        list_datetimes_str = [
+            "2012-01-08T14:15:00",
+            "2012-01-08T19:15:00",
+            "2012-01-08T22:15:00",
+            "2012-01-09T08:30:00",
+            "2012-01-09T12:30:00",
+            "2012-01-09T17:45:00",
+            "2015-12-31T15:30:00",
+            "2015-12-31T22:45:00",
+            "2015-12-31T19:45:00",
+        ]
+
+        list_datetimes_datetime = [datetime.datetime.fromisoformat(d) for d in list_datetimes_str]
+
+        previous_time_offsets = [
+            -datetime.timedelta(hours=1, minutes=30),
+            -datetime.timedelta(hours=0, minutes=45),
+            datetime.timedelta(hours=0)
+        ]
+
+        preprocess_tfrecords(
+            self.df_path,
+            self.hdf8_dir,
+            self.path_save,
+            patch_size=self.patch_size,
+            test_local=False,
+            is_validation=False,
+            year_month_day=None,
+            list_datetimes=list_datetimes_str
+        )
+
+        self.assertTrue(os.path.isdir(self.path_save))
+        records_dir = os.path.join(self.path_save, "train")
+        self.assertTrue(os.path.isdir(records_dir))
+
+        tfrecord_loader = tfrecord_dataloader(records_dir, patch_size=self.patch_size[0],
+                                              seq_len=len(previous_time_offsets))
+        df = pd.read_pickle(self.df_path)
+        hdf5_loader = hdf5_dataloader_test(
+            df, list_datetimes_datetime, get_target_time_offsets(), previous_time_offsets,
+            batch_size=1, subset="valid", data_directory=self.hdf8_dir, patch_size=self.patch_size,
+            normalize_imgs=True
+        )
+
+        for ((tf_sample, tf_pmd, tf_fmd), tf_target), ((hd_sample, hd_pmd, hd_fmd), hd_target) \
+                in zip(tfrecord_loader.batch(7), hdf5_loader):
+            tf.assert_equal(tf_target, hd_target)
+            tf.assert_equal(tf_pmd, hd_pmd)
+            tf.assert_equal(tf_fmd, hd_fmd)
+            ratio = tf_sample / hd_sample
+            print(f"Min ratio = {tf.reduce_min(ratio)} -- Max ratio = {tf.reduce_max(ratio)}")
+            self.assertTrue(tf.reduce_min(ratio) > 0.975)
+            self.assertTrue(tf.reduce_max(ratio) < 1.025)
 
 
 if __name__ == '__main__':
