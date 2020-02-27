@@ -9,9 +9,11 @@ is optional, and is the argument that corresponds to the command `-s` on the eva
 ```bash
 sbatch scripts/evaluator.sh [preds_output_path] [admin_config_path] [stats_output_path]
 ```
+Make sure that the [preds_output_path] and [stats_output_path] are the *absolute* path and not the relative path
+to the current folder from where the script is ran.
 For example, we ran the command
 ```bash
-sbatch scripts/evaluator.sh ./output.txt ./tests/valid_cfg/valid_cfg_2415.json ./stats.txt
+sbatch scripts/evaluator.sh /project/cq-training-1/project1/submissions/team09/code/output.txt ./tests/valid_cfg/valid_cfg_2415.json
 ```
 to make sure that the evaluator script was working, where the `valid_cfg_2415.json` contains around 2.4k
 target datetimes on the validation set (year 2015).
