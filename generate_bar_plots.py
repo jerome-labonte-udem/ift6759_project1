@@ -134,16 +134,19 @@ def main(cfg_path: str, saved_predictions: typing.Optional[str] = None):
     for cloudiness in cloudiness_values:
         mask = parse_cloudiness_flags(target_stations, target_datetimes, target_time_offsets, dataframe, cloudiness)
         mask = mask.reshape((len(target_stations), len(target_datetimes), len(target_time_offsets)))
-        rmse = np.sqrt(squared_errors[~np.isnan(gt) & mask & day]).mean()
-        std = np.sqrt(squared_errors[~np.isnan(gt) & mask & day]).std()
+        rmse = np.sqrt(np.nanmean(squared_errors[~np.isnan(gt) & mask & day]))
+        std = np.sqrt(np.std(squared_errors[~np.isnan(gt) & mask & day]))
         cloudiness_rmse.append(rmse)
         cloudiness_std.append(std)
+
+    cloudiness_mean_std = 1/np.sqrt(len(squared_errors[~np.isnan(gt) & mask & day])) * np.array(cloudiness_std)
+
     N = 4
     ind = np.arange(N)
     width = 0.35
 
     fig = plt.figure()
-    plt.bar(ind, cloudiness_rmse, width, yerr=cloudiness_std)
+    plt.bar(ind, cloudiness_rmse, width, yerr=cloudiness_mean_std * 1.96)
 
     plt.ylabel('RMSE')
     plt.title(f'{model_name} - RMSE by cloudiness factor')
@@ -160,16 +163,18 @@ def main(cfg_path: str, saved_predictions: typing.Optional[str] = None):
     for month in range(1, 13):
         mask = parse_months(target_stations, target_datetimes, target_time_offsets, dataframe, month)
         mask = mask.reshape((len(target_stations), len(target_datetimes), len(target_time_offsets)))
-        rmse = np.sqrt(squared_errors[~np.isnan(gt) & mask & day]).mean()
-        std = np.sqrt(squared_errors[~np.isnan(gt) & mask & day]).std()
+        rmse = np.sqrt(np.nanmean(squared_errors[~np.isnan(gt) & mask & day]))
+        std = np.sqrt(np.std(squared_errors[~np.isnan(gt) & mask & day]))
         month_rmse.append(rmse)
         month_std.append(std)
+
+    month_mean_std = 1/np.sqrt(len(squared_errors[~np.isnan(gt) & mask & day])) * np.array(month_std)
 
     N = 12
     ind = np.arange(N)
     width = 0.35
 
-    plt.bar(ind, month_rmse, width, yerr=month_std)
+    plt.bar(ind, month_rmse, width, yerr=month_mean_std * 1.96)
 
     plt.ylabel('RMSE')
     plt.title(f'{model_name} - RMSE by month')
@@ -184,17 +189,19 @@ def main(cfg_path: str, saved_predictions: typing.Optional[str] = None):
     station_std = []
     station_names = target_stations.keys()
     for i, station_name in enumerate(station_names):
-        rmse = np.sqrt(squared_errors[i][~np.isnan(gt[i]) & day[i]]).mean()
-        std = np.sqrt(squared_errors[i][~np.isnan(gt[i]) & day[i]]).std()
+        rmse = np.sqrt(np.nanmean(squared_errors[i][~np.isnan(gt[i]) & day[i]]))
+        std = np.sqrt(np.std(squared_errors[i][~np.isnan(gt[i]) & day[i]]))
         station_rmse.append(rmse)
         station_std.append(std)
-        print(station_name, rmse, std)
+        print(station_name, rmse)
+
+    station_mean_std = 1/np.sqrt(len(squared_errors[~np.isnan(gt) & mask & day])) * np.array(station_std)
 
     N = len(station_names)
     ind = np.arange(N)
     width = 0.35
 
-    plt.bar(ind, station_rmse, width, yerr=station_std)
+    plt.bar(ind, station_rmse, width, yerr=station_mean_std * 1.96)
 
     plt.ylabel('RMSE')
     plt.title(f'{model_name} - RMSE by station')
