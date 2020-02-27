@@ -18,6 +18,9 @@ from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from src.extract_tf_record import tfrecord_dataloader
 from src.schema import Catalog
 
+# Assure reproducible experiments
+tf.random.set_seed(12)
+
 # Directory to save logs for Tensorboard
 LOG_DIR = os.path.join("logs", "fit")
 

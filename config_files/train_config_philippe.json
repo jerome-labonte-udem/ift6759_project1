@@ -5,7 +5,7 @@
   "val_batch_size": 1024,
   "model_name": "CNN3D",
   "rotate_imgs": 1,
-  "seq_len": 3,
+  "seq_len": 2,
   "prob_drop_imgs": 0.2,
   "saved_weights_path": "saved_models/cnn_3d",
   "patch_size": 64,
@@ -35,9 +35,6 @@
     "P0DT6H0M0S"
   ],
     "previous_time_offsets": [
-    "P0DT3H0M0S",
-    "P0DT2H15M0S",
-    "P0DT1H30M0S",
     "P0DT0H45M0S",
     "P0DT0H0M0S"
   ]
