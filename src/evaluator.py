@@ -117,6 +117,8 @@ def generate_predictions(data_loader: tf.data.Dataset, model: tf.keras.Model, pr
             if len(minibatch) == 2:  # there is only one input + groundtruth, give the model the input directly
                 pred = model(minibatch[0])
             else:  # the model expects multiple inputs, give them all at once using the tuple
+                import pdb
+                pdb.set_trace()
                 pred = model(minibatch[:-1])
             if isinstance(pred, tf.Tensor):
                 pred = pred.numpy()

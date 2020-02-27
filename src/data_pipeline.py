@@ -4,7 +4,7 @@ from typing import List, Dict, Any, AnyStr, Tuple, Optional
 import datetime
 
 from src.hdf5 import HDF5File
-from src.schema import Station
+from src.schema import Station, get_previous_time_offsets
 from src.utils.data_utils import (
     get_labels_list_datetime, get_metadata, get_hdf5_samples_list_datetime
 )
@@ -55,6 +55,8 @@ def hdf5_dataloader_test(
     else:
         stations = {k: Station.COORDS[k] for k in stations.keys()}
 
+    timesteps = len(previous_time_offsets)
+
     def data_generator():
         # Directly use the provided list of datetimes
         # We can't delete any img/target at valid/test time since they have to be in order for evaluator.py
@@ -63,18 +65,32 @@ def hdf5_dataloader_test(
             if not batch_of_datetimes:
                 continue
 
-            samples, _, _, _ = get_hdf5_samples_list_datetime(
-                dataframe, batch_of_datetimes, previous_time_offsets, test_time=True, patch_size=patch_size,
+            samples, _, min_idx, max_idx = get_hdf5_samples_list_datetime(
+                dataframe, batch_of_datetimes, get_previous_time_offsets(), test_time=True, patch_size=patch_size,
                 directory=data_directory, stations=stations,
             )
 
+            samples = tf.cast(tf.convert_to_tensor(samples), dtype=tf.float32)
+
             if normalize_imgs:
                 # Normalize here since we normalize at load time for tfrecords at train time
+                # This code is nasty but necessary since the normalization in extract_tf_records.py
+                # had some issues, so we have to replicate the same exact (buggy) steps to get
+                # accurate results on the test set
+                min_idx = tf.cast(tf.convert_to_tensor(min_idx), dtype=tf.float32)
+                max_idx = tf.cast(tf.convert_to_tensor(max_idx), dtype=tf.float32)
+
+                samples = tf.dtypes.cast(((samples - min_idx) / (max_idx - min_idx)) * 255, tf.uint8)
+                samples = ((tf.dtypes.cast(samples, tf.float32) / 255) * (max_idx - min_idx) + min_idx)
+
                 samples = HDF5File.min_max_normalization_min1_1(samples)
+
+            samples = samples[:, -timesteps:, :, :, :]
 
             past_metadata, future_metadata = get_metadata(
                 dataframe, batch_of_datetimes, previous_time_offsets, target_time_offsets, stations
             )
+
             if subset == "test":
                 targets = tf.zeros(shape=(len(batch_of_datetimes) * len(stations), len(target_time_offsets)))
             else:  # validation
@@ -85,7 +101,6 @@ def hdf5_dataloader_test(
 
     past_metadata_len = 5  # day, hour, min, daytime, Clearsky
     future_metadata_len = len(target_time_offsets)
-    timesteps = len(previous_time_offsets)
     target_len = len(target_time_offsets)
     # TODO: Check if that's how prefetch should be used
     data_loader = tf.data.Dataset.from_generator(

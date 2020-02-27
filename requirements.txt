@@ -3,7 +3,7 @@ numpy==1.17.4
 opencv_python==3.4.4.19
 setuptools==41.0.1
 pandas==0.25.3
-h5py==2.10.0
+h5py==2.9.0
 tensorflow-gpu==2.0
 lz4==3.0.2
 tqdm==4.40.2

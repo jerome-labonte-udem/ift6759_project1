@@ -240,6 +240,7 @@ def _get_one_sample(
         max_index.insert(len(patches_index) - 1, max_prev)
 
     patches_index = np.stack(patches_index, axis=-1)
+
     min_index = np.stack(min_index, axis=-1)
     max_index = np.stack(max_index, axis=-1)
     # output should be [len(stations), len(previous_time_offsets), 1, 1, n_channels]

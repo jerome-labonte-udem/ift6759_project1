@@ -6,7 +6,7 @@ import tqdm
 import tensorflow as tf
 import numpy as np
 import random
-from typing import Tuple
+from typing import Tuple, List
 
 from src.data_pipeline import tfrecord_preprocess_dataloader
 from src.schema import Catalog, get_target_time_offsets, get_previous_time_offsets
@@ -51,7 +51,8 @@ def _convert_example(sample, past_metadata, future_metadata, min_channels, max_c
 
 def preprocess_tfrecords(
         dataframe_path: str, data_path: str, path_save: str, patch_size: Tuple[int, int],
-        test_local: bool, is_validation: bool, year_month_day: Tuple[int, int, int] = None
+        test_local: bool, is_validation: bool, year_month_day: Tuple[int, int, int] = None,
+        list_datetimes: List = None
 ):
     """
     Preprocess train set / validation set in shuffled tf_records of around 100MB each
@@ -64,42 +65,44 @@ def preprocess_tfrecords(
     :param year_month_day: specify (year, month, day) of target_datetimes, made for debugging !
     :return:
     """
-    assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
-    df = Catalog.add_invalid_t0_column(pd.read_pickle(dataframe_path))
-
-    assert os.path.isdir(data_path), f"invalid data path: {data_path}"
-
     if is_validation:
         path_save = os.path.join(path_save, "validation")
-        df = df.loc[df.index.year == 2015]
-        if test_local:
-            df = df.loc[df.index.month == 1]
-            df = df.loc[df.index.week == 1]
     else:
         path_save = os.path.join(path_save, "train")
-        df = df.loc[df.index.year < 2015]
-        if test_local:
-            df = df.loc[df.index.year == 2012]
-            df = df.loc[df.index.month == 1]
-            # df = df.loc[df.index.day == 9]
-
     os.makedirs(path_save, exist_ok=True)
 
-    batch_size = 16
+    assert os.path.isfile(dataframe_path), f"invalid dataframe path: {dataframe_path}"
+    df = Catalog.add_invalid_t0_column(pd.read_pickle(dataframe_path))
+    assert os.path.isdir(data_path), f"invalid data path: {data_path}"
 
-    if year_month_day is not None and isinstance(year_month_day, tuple):
-        print("Debugging preprocessing TF Record")
-        df = df.loc[df.index.year == year_month_day[0]]
-        df = df.loc[df.index.month == year_month_day[1]]
-        df = df.loc[df.index.day == year_month_day[2]]
+    if list_datetimes is None:
+        if is_validation:
+            df = df.loc[df.index.year == 2015]
+            if test_local:
+                df = df.loc[df.index.month == 1]
+                df = df.loc[df.index.week == 1]
+        else:
+            df = df.loc[df.index.year < 2015]
+            if test_local:
+                df = df.loc[df.index.year == 2012]
+                df = df.loc[df.index.month == 1]
+                # df = df.loc[df.index.day == 9]
+        if year_month_day is not None and isinstance(year_month_day, tuple):
+            print("Debugging preprocessing TF Record")
+            df = df.loc[df.index.year == year_month_day[0]]
+            df = df.loc[df.index.month == year_month_day[1]]
+            df = df.loc[df.index.day == year_month_day[2]]
 
-    target_datetimes = list(df.loc[~df[Catalog.is_invalid]].index.values)
-    random.shuffle(target_datetimes)
+        target_datetimes = list(df.loc[~df[Catalog.is_invalid]].index.values)
+        random.shuffle(target_datetimes)
+        if len(df) == 0 or len(target_datetimes) == 0:
+            raise ValueError(f"DF and target_datetimes is empty: wrong set of arguments: "
+                             f"validation={is_validation}; test_local={test_local}")
+    else:
+        target_datetimes = list_datetimes
 
     print(f"Total of {len(target_datetimes)} target_datetimes to process")
-    if len(df) == 0 or len(target_datetimes) == 0:
-        raise ValueError(f"DF and target_datetimes is empty: wrong set of arguments: "
-                         f"validation={is_validation}; test_local={test_local}")
+    batch_size = 16
 
     previous_time_offsets = get_previous_time_offsets()
 
