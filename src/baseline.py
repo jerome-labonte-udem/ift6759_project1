@@ -21,6 +21,7 @@ def main():
     data_dir = Path(Path(__file__).parent.parent, "data")
     data_path = Path(data_dir, "catalog.helios.public.20100101-20160101.pkl")
     df = pd.read_pickle(data_path)
+    df = df[df.index.year == 2015]
     compute_clearsky_rmse(df)
 
 
